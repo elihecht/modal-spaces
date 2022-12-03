@@ -16,8 +16,6 @@ library(knitr)
 library(ggrepel)
 
 knitr::opts_chunk$set(echo = FALSE,dpi=300,fig.width=7)
-knitr::opts_knit$set(root.dir = "/Users/eli/Documents/modal-spaces-master")
-# knitr::opts_knit$set(root.dir = "C:/Users/jonat/Dropbox (Dartmouth College)/modalBackgrounds/modal-spaces-master")
 ```
 
 ## Study 1: Possibility Generation

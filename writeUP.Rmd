@@ -360,12 +360,7 @@ for (c in c(13)) { ## You can add contexts here if you want to see the correspon
   assign(paste0("codedHist", c), codedHist)
 }
 
-plot(codedHist13)
-
 # ggsave(codedHist13,file="figs/fig2.jpg",width = 12,height = 10)
-
-
-
 ```
 
 ## Study 2: Action Ratings

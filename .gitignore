@@ -9,6 +9,10 @@
 .Rhistory
 .Rapp.history
 
+# R Project file
+.Rproj
+.Rproj.user
+
 # Session Data files
 .RData
 .RDataTmp

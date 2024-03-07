@@ -17,6 +17,8 @@ library(readr)
 library(lme4)
 library(knitr)
 library(ggrepel)
+library(irr)
+library(purrr)
 
 knitr::opts_chunk$set(echo = FALSE,dpi=300,fig.width=7)
 ```
@@ -27,9 +29,9 @@ knitr::opts_chunk$set(echo = FALSE,dpi=300,fig.width=7)
 
 ```{r participantspg,echo=FALSE}
 # read in Study 1a-c data
-pg1 <- read.csv("data/pg1.csv")
-pg2 <- read.csv("data/pg2.csv")
-pg3 <- read.csv("data/pg3.csv")
+pg1 <- read.csv("../data/pg1.csv")
+pg2 <- read.csv("../data/pg2.csv")
+pg3 <- read.csv("../data/pg3.csv")
 
 # add id column
 pg1 <- pg1 %>% rownames_to_column(var = "id") %>% 
@@ -85,6 +87,9 @@ pgL <- pgW %>% select(id, S1A1_4:S18A5_6, -c(demo:ses, contains("FL"), contains(
 # removes participants who clearly didn't take survey seriously/put in nonsensical answers
 pgL <- pgL %>% filter(!id %in% c(57, 88, 91, 135, 151, 153, 158, 189, 248, 229))
 
+# remove one set of responses from one participant for one context, for which they put "running out of time" for all 5 responses. Otherwise participant had normal behavior
+pgL <- pgL %>% filter(!(id == 141 & context == 9))
+
 # removes answers for any scenario sets that don't have full responses (3 ratings for each of 5 questions)
 pgL <- pgL %>% group_by(id, context) %>%
     filter(n()==15)
@@ -104,15 +109,19 @@ perBest <- pgL %>% filter(question=="avg") %>%
   ungroup() %>% 
   mutate(perBest = numBest/sum(numBest)) 
 
+
+```
+
+```{r pgpredict, echo=FALSE, warning=FALSE, message=FALSE}
 # spreads out data into 1 row per participant response with 3 ratings in separate columns, as well as the average
 pgPredict <- pgL %>% pivot_wider(names_from = "question", values_from = "response")
 
 # Here we predict the order in which an answer was generated based on how highly the answer is rated
-if(file.exists("lmerOutputs/pgPredictP.rda")){
+if(file.exists("../lmerOutputs/pgPredictP.rda")){
   # saves computational time to just read these tables instead of recalculating them every time
-  pgPredictN <- readRDS("lmerOutputs/pgPredictN.rda")
-  pgPredictP <- readRDS("lmerOutputs/pgPredictP.rda")
-  pgPredictM <- readRDS("lmerOutputs/pgPredictM.rda")
+  pgPredictN <- readRDS("../lmerOutputs/pgPredictN.rda")
+  pgPredictP <- readRDS("../lmerOutputs/pgPredictP.rda")
+  pgPredictM <- readRDS("../lmerOutputs/pgPredictM.rda")
 } else{
     lmerSamp_Full <- lmer(as.numeric(answer) ~ scale(Morality) + scale(Normality) +  scale(Probability) + 
                          (1|context) + 
@@ -136,11 +145,11 @@ if(file.exists("lmerOutputs/pgPredictP.rda")){
                        data=pgPredict)
       
   pgPredictP <- anova(lmerSamp_Full,lmerSamp_P)
-      saveRDS(pgPredictP, file = "lmerOutputs/pgPredictP.rda")
+      saveRDS(pgPredictP, file = "../lmerOutputs/pgPredictP.rda")
   pgPredictM <- anova(lmerSamp_Full,lmerSamp_M)
-      saveRDS(pgPredictM, file = "lmerOutputs/pgPredictM.rda")
+      saveRDS(pgPredictM, file = "../lmerOutputs/pgPredictM.rda")
   pgPredictN <- anova(lmerSamp_Full,lmerSamp_N)
-    saveRDS(pgPredictN, file = "lmerOutputs/pgPredictN.rda")
+    saveRDS(pgPredictN, file = "../lmerOutputs/pgPredictN.rda")
   
 }
 #  anova predicting answer number by average rating of an answer
@@ -148,11 +157,11 @@ pgPredictAnova <- summary(aov(lm(as.numeric(answer) ~ avg, data=pgPredict)))
 
 
 # Here we investigate the relationship between normality ratings and probability and morality ratings:
-if(file.exists("lmerOutputs/pgNormInt.rda")){
+if(file.exists("../lmerOutputs/pgNormInt.rda")){
   # saves computational time to just read these tables instead of recalculating them every time
-  pgNormInt <- readRDS("lmerOutputs/pgNormInt.rda")
-  pgNormP <- readRDS("lmerOutputs/pgNormP.rda")
-  pgNormM <- readRDS("lmerOutputs/pgNormM.rda")
+  pgNormInt <- readRDS("../lmerOutputs/pgNormInt.rda")
+  pgNormP <- readRDS("../lmerOutputs/pgNormP.rda")
+  pgNormM <- readRDS("../lmerOutputs/pgNormM.rda")
 } else{
   # predicting normality from interaction of morality and probability
   lmerNorm_Full <- lmer(scale(Normality) ~ scale(Morality) * scale(Probability) + (1|context) +
@@ -169,11 +178,11 @@ if(file.exists("lmerOutputs/pgNormInt.rda")){
   
 
   pgNormInt <- anova(lmerNorm_Full,lmerNorm_Main) # effect of interaction
-    saveRDS(pgNormInt, file = "lmerOutputs/pgNormInt.rda") # these just save the models so you don't have to rerun later
+    saveRDS(pgNormInt, file = "../lmerOutputs/pgNormInt.rda") # these just save the models so you don't have to rerun later
   pgNormP <- anova(lmerNorm_Main,lmerNorm_P) # effect of probability
-    saveRDS(pgNormP, file = "lmerOutputs/pgNormP.rda")
+    saveRDS(pgNormP, file = "../lmerOutputs/pgNormP.rda")
   pgNormM <- anova(lmerNorm_Main,lmerNorm_M) # effect of morality
-    saveRDS(pgNormM, file = "lmerOutputs/pgNormM.rda")
+    saveRDS(pgNormM, file = "../lmerOutputs/pgNormM.rda")
   
 }
 ```
@@ -239,10 +248,10 @@ figS1 <- perBest %>%
 
 ```{r tidycoded, warnings = F, echo=F,message=F}
 # rater 1 codings
-coding1 <- read.csv("manualCoding/texts_coding_1.csv") %>% 
+coding1 <- read.csv("../manualCoding/texts_coding_rater1.csv") %>% 
   rename(coding1 = group)
 # rater 2 codings
-coding2 <- read.csv("manualCoding/texts_coding_2.csv") %>% 
+coding2 <- read.csv("../manualCoding/texts_coding_rater2.csv") %>% 
   rename(coding2 = group)
 
 coded <- full_join(coding1, coding2) 
@@ -253,7 +262,7 @@ agreement <- coded %>% summarise(agree = sum(coding1==coding2),
   mutate(sum = agree+disagree)
 
 # rater 3 rated in cases of disagreement between the first two raters
-coding3 <- read.csv("manualCoding/texts_coding_3.csv") %>% 
+coding3 <- read.csv("../manualCoding/texts_coding_rater3.csv") %>% 
   rename(codingFinal = coded.final)
 
 coded <- coded %>% full_join(coding3 %>% select(-coded1, -coded2)) %>% 
@@ -264,7 +273,7 @@ coded <- coded %>% separate(scenario_id_fr, into = c("context", "id", "answer"),
   mutate(across(1:3, as.numeric)) %>% 
   right_join(pgL %>% filter(question!="avg") %>% group_by(context, id, answer) %>% summarise(value = mean(response)))
 
-codingKey <- read.csv("materials/textsCodingKey.csv") %>% 
+codingKey <- read.csv("../materials/textsCodingKey.csv") %>% 
   rename(group = X)
 
 # coded includes participant answers + ratings as well as manual coded groups
@@ -274,6 +283,8 @@ coded <- codingKey %>%
   unite(col = "context_group", context, group, sep = "_") %>% 
   filter(groupText != "") %>%
   right_join(coded %>% mutate(context_group = paste(context, group, sep = "_"))) 
+
+coded %>% write.csv('../manualCoding/pg_coded_final.csv')
 ```
 
 Two raters manually coded each of the `r nrow(coding1)` participant responses into 13-18 distinct action categories for each context The criterion for a grouping was that at least three participants generated an action within that category. Two raters independently grouped participant responses with an inter-rater agreement of `r round(agreement[[1,1]]/(agreement[[1,1]]+agreement[[1,2]]), 1) * 100`%. A third rater determined final results in cases of disagreements. Action categories for each context are presented in Table 2 in the appendix.
@@ -367,10 +378,12 @@ for (c in c(13)) { ## You can add contexts here if you want to see the correspon
 ```
 
 ## Study 2: First-person decision making
-
+### Participants
 ```{r participantsdecision, echo=F,warning=F,message=F}
-decisionW <- read.csv("data/decision.csv") %>% 
+decisionW <- read.csv("../data/decision.csv") %>% 
   rownames_to_column("id")
+
+exclude_ids <- c(21, 64, 72, 74, 84, 86, 89)
 ```
 
 Critically, we are not only interested in finding a way of describing the space
@@ -380,17 +393,232 @@ whether we could use this model of contextual possibility space to predict
 responses in a first-person decision-making task. We modified our original 18
 scenarios, replacing all names and pronouns referring to the agent with second-
 person pronouns (see Table 1 for the modified scenarios). 
-e collected a sample of `r length(unique(decisionW$id))` participants ($M_{age}$ = `r round(mean(decisionW$age,na.rm=T),2)`; $SD_{age}$ = `r round(sd(decisionW$age,na.rm=T),2)`; `r table(decisionW$gender)[[2]]` females) from Amazon Mechanical Turk ([www.mturk.com](www.mturk.com)). `r table(decisionW$finished)[[1]]` participants did not finish the study and we're excluded from further analysis.
+e collected a sample of `r length(unique(decisionW$id))` participants ($M_{age}$ = `r round(mean(decisionW$age,na.rm=T),2)`; $SD_{age}$ = `r round(sd(decisionW$age,na.rm=T),2)`; `r table(decisionW$gender)[[2]]` females) from Amazon Mechanical Turk ([www.mturk.com](www.mturk.com)). `r table(decisionW$finished)[[1]]` participants did not finish the study and we're excluded from further analysis. `r length(exclude_ids)` participants gave nonsensical/unclear responses, so their data was also excluded from analysis.
 
+### Procedure
+Each participant viewed all 18 contexts with modified pronouns in randomized order. After reading each context, participants were asked "In this situation, what would you decide to do?" and were given a free-response text box to write their answers within.
+
+### Analysis
 ```{r tidydecision, echo=F,warning=F,message=F}
-decisionL <- decisionW %>% filter(finished) %>% 
+
+decisionL <- decisionW %>% 
+  # remove participants who didn't finish the study
+  filter(finished) %>% 
   select(id, S1_1:S18_1) %>% 
+  # transform dataframe to long format
   pivot_longer(-id, names_to = "context", values_to = "decision",
-               values_drop_na = T) %>% 
+               values_drop_na = T) %>%
+  # select number for context names ("S18_1" -> 18)
   mutate(context = parse_number(context))
+
+# remove participants who gave meaningless responses
+# (Note: remove the negation to view their responses)
+decisionL <- decisionL %>% filter(!(id %in% exclude_ids)) 
 ```
 
-Figure out how to merge python work with R stuff here.
+Instead of manually coding the first-person decision responses, we used natural language processing to group similar responses. First, we aggregated the responses from the original possibility generation study and the decision study, stripping all agent names and pronouns from the responses. We then computed sentence embeddings for all responses using Sentence-BERT ([www.sbert.net](www.sbert.net)), reduced the dimensionality of the embedding space using UMAP ([umap-learn.readthedocs.io/en/](umap-learn.readthedocs.io/en/)) , and performed k-means clustering on the resulting embeddings, with the number of clusters selected using the elbow method. The analysis used is provided in "nlpCoding/decision_NLP.ipynb". 
+
+```{r clusterRead, echo=F,warning=F,message=F}
+
+cluster_tables_numManual <- list.files('../nlpCoding/numSameAsManual/cluster_tables', full.names = T)
+cluster_tables_numElbow <- list.files('../nlpCoding/numFromElbow/cluster_tables', full.names = T)
+
+
+# create a dataframe to aggregating all NLP clustering outputs 
+clustering_outputs <- data.frame()
+for (file in cluster_tables_numManual) {
+  output <- read.csv(file, row.names="X")
+  output <- output %>% mutate(clustering_method = "numManual")
+  clustering_outputs <- bind_rows(clustering_outputs, output)
+}
+for (file in cluster_tables_numElbow) {
+  output <- read.csv(file, row.names="X")
+  output <- output %>% mutate(clustering_method = "numElbow")
+  clustering_outputs <- bind_rows(clustering_outputs, output)
+}
+
+
+# # Define a function for text splitting along colon
+# split_text <- function(x) {
+#   s <- unlist(strsplit(x, ":", fixed = TRUE))
+#   return(trimws(s[length(s)]))
+# }
+
+
+cluster_df <- clustering_outputs %>% 
+  # mutate(is_centroid = cluster_name == sapply(merged_text, split_text)) %>% 
+  select(id, context, answer, response_original, source, value, clustering_method, cluster, cluster_name, 
+         # is_centroid,
+         )
+
+# filters to just responses from the possibility generation study, with clusters determined using the same number as the manual groupings
+cluster_df_numManual <- cluster_df %>% 
+              filter(source == 'pg' & clustering_method == 'numManual') %>%
+              select(-c(source, value, response_original)) %>% 
+              unite(key, id, context, answer)
+
+# joins the above dataframe with the manual groupings
+cluster_compare <- coded %>% 
+  unite(key, id, context, answer, sep = "_") %>%
+  rename(response = text, manual_group = group) %>% 
+  left_join(y = cluster_df_numManual,
+            by = join_by(key)
+              ) %>% 
+  separate(key, into = c("id", "context", "answer")) %>% 
+  select(context, id, answer, response, 
+         manual_group, cluster, groupText, cluster_name, value) %>% 
+  mutate(context= as.integer(context))
+
+# for each cluster, finds manual group # with the highest shared number of responses
+# Qualitatively, viewing this dataframe suggests allignment in the manual and NLP groupings
+biggest_manual_group_by_cluster <- cluster_compare %>% 
+  group_by(context, cluster, 
+           cluster_name,
+           manual_group, 
+           groupText
+           ) %>% 
+  summarise(n = n(), .groups = "keep") %>% # calculates number of each manual group to NLP context pair
+  group_by(context, cluster) %>% 
+  arrange(desc(n)) %>% # within each cluster, sorts by number
+  slice(1) %>% # select manual group with highest number of responses in each cluster
+  select(-n) %>% 
+  rename(biggest_manual_group_by_cluster = manual_group) 
+
+cluster_compare <- cluster_compare %>% 
+  # left_join(manual_group_of_centroid %>% select(-cluster_name), by = join_by(context, cluster)) %>% 
+  left_join(biggest_manual_group_by_cluster %>% select(-groupText), by = join_by(context, cluster, cluster_name)) 
+
+## Inter-rater reliability of manual grouping and clustering algorithm 
+
+# Percent agreement:
+perAgreement <- cluster_compare %>% 
+  # filter(manual_group != 0) %>%
+  summarise(
+    # group_same_as_cluster_centroid = sum(manual_group == manual_group_of_centroid)/n(),
+            group_same_as_majority_of_cluster = sum(manual_group == biggest_manual_group_by_cluster)/n()) %>% pull()
+
+cluster_compare <- cluster_compare %>% 
+  mutate(biggest_manual_group_by_cluster = as.factor(biggest_manual_group_by_cluster),
+         manual_group = as.factor(manual_group)) 
+
+kappaAgreement <- kappa2(cluster_compare[, c("biggest_manual_group_by_cluster", "manual_group")])
+
+
+```
+
+Because we used K-means clustering, we had to specify the number of clusters to be used for each scenario. First we set the number of clusters for each context to be identical to the number of manual groups used for that context, in order to directly compare the performance of our manual clustering and the data-driven method.
+
+Qualitatively, the clusters generated made were semantically meaningful, with similar types of answers being grouped together, even when the exact words differed (i.e. "" and "" were placed in the same cluster). We further calculated the agreement between the clustering method and our manual groupings. Each cluster was assigned to a manual grouping by determining which manual grouping accounted for a plurality of the cluster. Note that because the manual grouping method and the NLP clustering segmented semantic space differently, two different clusters could be linked to the same manual grouping if a plurality of responses in both clusters were grouped together. A given response was manually coded into the same manual group as the plurality of its cluster `r round(perAgreement,3)` of the time. Treating the manual grouping method and the clustering method as two different "raters" we found a Cohen's kappa coefficient of `r round(kappaAgreement$value,3)` suggesting strong agreement between the clustering and the manual grouping methods.
+
+
+```{r decisionpredict, echo=F,warning=F,message=F}
+# cluster_df 
+
+# calcualte average value of possibility generation responses for each cluster
+pg_clusters <- cluster_df %>%
+  filter(source == 'pg' & clustering_method == 'numElbow') %>% 
+  group_by(context, cluster, cluster_name) %>% 
+  summarise(avg_value_pg = mean(value), n_pg = n(), .groups = "drop") %>% 
+  group_by(context) %>% 
+  mutate(proportion_pg = n_pg/sum(n_pg)) 
+
+# calculate proportion of decision responses for each context being grouped into each cluster
+decision_clusters <- cluster_df %>% 
+  filter(source == 'decision' & clustering_method == 'numElbow') %>% 
+  group_by(context, cluster, cluster_name) %>% 
+  summarise(n_decision = n(), .groups = "drop") %>% 
+  group_by(context) %>% 
+  mutate(proportion_decision = n_decision/sum(n_decision)) 
+
+
+# Model: Sample k samples from pg for a given context.
+# assign clusters, select option with highest cluster value. Summarise to get proportion of being chosen for each cluster
+
+
+# Function to perform the decision model for a given k
+run_decision_model <- function(k, df, pg_clusters, sample_sets) {
+  print(paste("k =", k))
+  
+  decision_model <- df %>% 
+    filter(source == 'pg' & clustering_method == 'numElbow') %>%
+    left_join(pg_clusters, by = join_by(context, cluster, cluster_name)) %>% 
+    group_by(context) %>%
+    # sample k * sample_sets responses with replacement from each context
+    sample_n(k * sample_sets, replace = TRUE) %>%
+    # split resulting responses into sample sets of k size
+    mutate(sample_set = (row_number() - 1) %/% k) %>%
+    group_by(context, sample_set) %>%
+    # takes the response with the highest avg value of cluster
+    arrange(desc(avg_value_pg)) %>%
+    slice(1) %>%
+    group_by(context, cluster) %>%
+    summarise(model_proportion = n() / sample_sets, .groups = "drop")
+  
+  # join decision model with pg_clusters and decision_clusters add contexts that were never sampled by the model
+  clusters_summarized <- left_join(pg_clusters, decision_model,
+                                   by = join_by(context, cluster)) %>%
+    left_join(decision_clusters, by = join_by(context, cluster, cluster_name)) %>% 
+    # replace NA values (clusters that were never sampled) with 0
+    mutate(model_proportion = if_else(is.na(model_proportion), 0, model_proportion),
+           proportion_decision = if_else(is.na(proportion_decision), 0, proportion_decision)) %>% 
+    mutate(k = k)
+  
+  return(clusters_summarized)
+}
+
+# Specify the range of k values
+k_values <- 1:10
+# Specify how many consideration sets are sampled
+sample_sets = 10000
+
+
+# Use purrr::map to run the function for each k value
+decision_results <- map_df(k_values, ~ run_decision_model(.x, cluster_df, pg_clusters, sample_sets))
+
+# table with model correlations and p values for 1 <= k <= 10
+k_correlations <- decision_results %>% group_by(k) %>%
+  summarise(correlation = cor.test(model_proportion, proportion_decision)$estimate,
+            p_value = cor.test(model_proportion, proportion_decision)$p.value)
+
+```
+
+```{r decisiongraph}
+# run decision model using k = 2 as determined by above analysis
+
+# selects results from decision model with k=2
+cor_result <- with(decision_results %>% filter(k==2), cor.test(model_proportion, proportion_decision))
+cor_result
+```
+Having verified that the clustering method generated similar results as human raters when using the same number of clusters, we next sought to select the number of clusters using a more data-driven method. For each context, we generated an 'elbow plot' to determine the appropriate number of clusters. 
+
+```{r decisionplot, echo=F, warning=F, message=F, fig.width=6.5,fig.height=5.25}
+figDecision <- decision_results %>% filter(k == 2) %>% 
+  mutate(context = as.factor(context)) %>% 
+  ggplot(aes(x = model_proportion, y = proportion_decision)) +
+  geom_point(aes(color = context, group = cluster_name)) +
+  geom_smooth(method = "lm") +
+  labs(x = "Modeled Decision Likelihood", y = "Actual Decision Likelihood",) +
+  theme_bw() +
+    theme(
+      plot.background = element_blank()
+      ,panel.grid.major = element_blank()
+      ,panel.grid.minor = element_blank()
+      # ,legend.title=element_blank()
+      ,legend.text=element_text(size=rel(1.4))
+      # ,axis.text=element_text(size=rel(2))
+      # ,axis.title.y=element_text(vjust=.9)
+      ,axis.ticks = element_blank()
+      ,strip.text=element_text(size=rel(1))
+      ,axis.title=element_text(size=rel(1.5))
+     # ,legend.position = "none"
+    )
+
+# figDecision
+
+# ggsave(figDecision,filename = "../figs/figDecision.png", width = 10, height = 8,units = "in")
+
+```
+
 
 
 ## Study 3: Action Ratings
@@ -399,7 +627,7 @@ For each context, we created a list of six actions the agent could possibly do. 
 ### Participants
 
 ```{r participantsev, echo=F,warning=F,message=F}
-evW <- read.csv("data/ev.csv") %>% 
+evW <- read.csv("../data/ev.csv") %>% 
   rownames_to_column("id")
 ```
 
@@ -621,7 +849,7 @@ for (c in unique(pgL$context)){
 ### Participants
 ```{r participantsht, echo=F,warning=F,message=F}
 # reads in participants' 'had to' judgments for each action
-htW <- read.csv("data/hadTo.csv")%>% 
+htW <- read.csv("../data/hadTo.csv")%>% 
   rownames_to_column("id")
 ```
 
@@ -709,16 +937,16 @@ For each context, we came up with one downstream consequence that could potentia
 
 ```{r participantscausal, echo=F,warning=F,message=F}
 # reads in data for participants' ratings of whether the agent caused the downstream consequence
-causalW <- read.csv("data/causal.csv") %>% 
+causalW <- read.csv("../data/causal.csv") %>% 
   rownames_to_column("id")
 
 # reads in data for participants' ratings of whether the action was necessary for causing the outcome and for the relevancy of alternative events
-counterW <- read.csv("data/causal+counterfactual.csv") %>% 
+counterW <- read.csv("../data/causal+counterfactual.csv") %>% 
   rownames_to_column("id") %>% 
   rename_with(~gsub("\\.", "_", .x), .cols = S1_1_1:S18.2_1)
 
 # reads in data for participant ratings of whether the action was sufficient for the downstream consequence
-suffW <- read.csv("data/sufficiencyCounterfactual.csv") %>% 
+suffW <- read.csv("../data/sufficiencyCounterfactual.csv") %>% 
   rownames_to_column("id") %>% 
   rename_with(~gsub("\\.", "_", .x), .cols = S1_1_1:S18.1_1)
 
@@ -837,7 +1065,7 @@ causalSum <- counterL %>%
 ##  Here, we estimate the probability of participants sampling an event in which E=a_a, or the probability of sampling the actual action done for each actual action.
 
 # read in coding of each actual action into our manual coding groups
-actualActions <- read.csv("materials/actualActions.csv", row.names = "X") 
+actualActions <- read.csv("../materials/actualActions.csv", row.names = "X") 
 
 causalSum  <- causalSum %>% arrange(context, actionNumb) %>%
   bind_cols(actualActions %>% arrange(context, actionNumb) %>% select(group))
@@ -986,7 +1214,7 @@ Using the same stimulus sets from Study 4, we sought to determine whether the mo
 
 ```{r participantsblame, echo=F, warning=F,message=F}
 # reads in data for whether ratings of agent should be blamed for downstream consequence
-blameW <- read.csv("data/blame.csv") %>% 
+blameW <- read.csv("../data/blame.csv") %>% 
   rownames_to_column("id")
 ```
 
@@ -1096,7 +1324,7 @@ figS4 <- blameSum %>% mutate(context=factor(context)) %>%
 ### Table 1
 
 ```{r contextsTable, results='asis'}
-table1 <- read.csv("materials/contextsTable.csv") 
+table1 <- read.csv("../materials/contextsTable.csv") 
 
 # table1 <- table1 %>% rename_with(~sub("(.)", "\\U\\1",., perl=TRUE) %>% gsub('_', ' ',.))
 
@@ -1112,7 +1340,7 @@ kable(codingKey)
 ### Table 3
 
 ```{r altcontextsTable, results='asis'}
-table3 <- read.csv("materials/contextsTable.csv") %>% select(context, text, alt_text)
+table3 <- read.csv("../materials/contextsTable.csv") %>% select(context, text, alt_text)
 
 kable(table3,booktabs=T)
 ```

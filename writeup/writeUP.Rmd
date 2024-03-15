@@ -230,7 +230,7 @@ fig1 <- pgL %>% filter(question!="avg") %>%
   )
 
 fig1 
-# ggsave(fig1,file="figs/fig1.jpg",width = 10,height = 7)
+# ggsave(fig1,file="../figs/fig1.png",width = 10,height = 7)
 
 ## Figure S1
 figS1 <- perBest %>% 
@@ -253,7 +253,7 @@ figS1 <- perBest %>%
   )
 
 figS1 
-# ggsave(figS1,file="figs/figS1.jpg",width = 7,height = 7)
+# ggsave(figS1,file="../figs/figS1.png",width = 7,height = 7)
 
 ```
 
@@ -371,7 +371,7 @@ This pattern held true within each context. For each context, we performed an in
 
 # histogram showing the different action categories for a specific context , including information with number and average rating of actions in each category.
 for (c in c(13)) { ## You can add contexts here if you want to see the corresponding graphs
-  codedHist <- coded %>% 
+  fig2 <- coded %>% 
   group_by(context, group, groupText) %>%
   summarise(count = n(), pgAvg = mean(value)) %>%
   filter(context == c) %>%
@@ -394,10 +394,11 @@ for (c in c(13)) { ## You can add contexts here if you want to see the correspon
     ,axis.title.x = element_text(size=rel(2))
     ,axis.ticks = element_blank()
   )
-  assign(paste0("codedHist", c), codedHist)
+  assign(paste0("codedHist", c), fig2)
 }
 
-# ggsave(codedHist13,file="figs/fig2.jpg",width = 12,height = 10)
+# ggsave(fig2,file="../figs/fig2.png",width = 12,height = 10)
+
 ```
 
 ## Study 2: First-person decision making
@@ -417,7 +418,7 @@ whether we could use this model of contextual possibility space to predict
 responses in a first-person decision-making task. We modified our original 18
 scenarios, replacing all names and pronouns referring to the agent with second-
 person pronouns (see [Table 1](#table-1) for the modified scenarios). 
-e collected a sample of `r length(unique(decisionW$id))` participants ($M_{age}$ = `r round(mean(decisionW$age,na.rm=T),2)`; $SD_{age}$ = `r round(sd(decisionW$age,na.rm=T),2)`; `r table(decisionW$gender)[[2]]` females) from Amazon Mechanical Turk ([www.mturk.com](www.mturk.com)). `r table(decisionW$finished)[[1]]` participants did not finish the study and we're excluded from further analysis. `r length(exclude_ids)` participants gave nonsensical/unclear responses, so their data was also excluded from analysis.
+We collected a sample of `r length(unique(decisionW$id))` participants ($M_{age}$ = `r round(mean(decisionW$age,na.rm=T),2)`; $SD_{age}$ = `r round(sd(decisionW$age,na.rm=T),2)`; `r table(decisionW$gender)[[2]]` females) from Amazon Mechanical Turk ([www.mturk.com](www.mturk.com)). `r table(decisionW$finished)[[1]]` participants did not finish the study and we're excluded from further analysis. `r length(exclude_ids)` participants gave nonsensical/unclear responses, so their data was also excluded from analysis.
 
 ### Procedure
 Each participant viewed all 18 contexts with modified pronouns in randomized order. After reading each context, participants were asked "In this situation, what would you decide to do?" and were given a free-response text box to write their answer within.
@@ -444,8 +445,8 @@ Instead of manually coding the first-person decision responses, we used natural 
 
 ```{r clusterRead, echo=F,warning=F,message=F}
 # Read in clustering results using two methods from decision_NLP.ipynb
-cluster_tables_numManual <- list.files('../nlpCoding/numSameAsManual/cluster_tables', full.names = T)
-cluster_tables_numElbow <- list.files('../nlpCoding/numFromElbow/cluster_tables', full.names = T)
+cluster_tables_numManual <- list.files('../nlpCoding/numManual/cluster_tables', full.names = T)
+cluster_tables_numElbow <- list.files('../nlpCoding/numElbow/cluster_tables', full.names = T)
 
 
 # create a dataframe to aggregating all NLP clustering outputs 
@@ -525,9 +526,9 @@ kappaNLP <- kappa2(cluster_compare[, c("biggest_manual_group_by_cluster", "manua
 
 Because we used K-means clustering, we had to specify the number of clusters to be used for each scenario. First we set the number of clusters for each context to be identical to the number of manual groups used for that context, in order to directly compare the performance of our manual grouping and the algorithmic clustering.
 
-Qualitatively, the clusters generated were semantically meaningful, with similar types of answers being grouped together, even when the exact words differed (for example, see [cluster plot for context 13 ](../nlpCoding/numSameAsManual/plots/S13.html)). We further calculated the agreement between the clustering method and our manual groupings. Each cluster was assigned to a manual grouping by determining which manual grouping accounted the largest amount of responses within the cluster. Note that because the manual grouping method and the NLP clustering segmented semantic space differently, two different clusters could be linked to the same manual grouping if a plurality of responses in both clusters were grouped together. A given response was manually coded into the same manual group as the plurality of its cluster `r round(perAgreementNLP * 100,3)`% of the time. Treating the manual grouping method and the clustering method as two different raters we found a Cohen's kappa coefficient of `r round(kappaNLP$value,3)` suggesting strong agreement between the clustering and the manual grouping methods.
+Qualitatively, the clusters generated were semantically meaningful, with similar types of answers being grouped together, even when the exact words differed (for example, see [cluster plot for context 13 ](../nlpCoding/numSameAsManual/plots/S13.html)). We further calculated the agreement between the clustering method and our manual groupings. Each cluster was assigned to a manual grouping by determining which manual grouping accounted the largest amount of responses within the cluster. Note that because the manual grouping method and the NLP clustering segmented semantic space differently, two different clusters could be linked to the same manual grouping if a plurality of responses in both clusters were grouped together. A given response was manually coded into the same manual group as the plurality of its cluster `r round(perAgreementNLP * 100,1)`% of the time. Treating the manual grouping method and the clustering method as two different raters we found a Cohen's kappa coefficient of `r round(kappaNLP$value,3)` suggesting strong agreement between the clustering and the manual grouping methods.
 
-Having verified that the clustering method generated similar results as human raters when using the same number of clusters, we concluded that clustering method was effective at identifying semantically meaningful action categories. However, for further analysis, we sought to use a more data-driven approach to determine the appropriate number of clusters. For each context, we generated an 'elbow plot' to determine the appropriate number of clusters. For instance the [elbow plot for context 13 ](../nlpCoding/numFromElbow/elbow_plots/S13.png) was assessed as suggesting an optimal number of clusters at k = 7. We then re-ran the clustering analysis used above with the k-values obtained from these elbow plots.
+Having verified that the clustering method generated similar results as human raters when using the same number of clusters, we concluded that the clustering method was effective at identifying semantically meaningful action categories. However, for further analysis, we sought to use a more data-driven approach to determining the appropriate number of clusters. For each context, we generated an 'elbow plot' to determine the appropriate number of clusters. For instance the [elbow plot for context 13 ](../nlpCoding/numElbow/elbow_plots/S13.png) was assessed as suggesting an optimal number of clusters at k = 7. We then re-ran the clustering analysis used above with the k-values obtained from these elbow plots.
 
 ### Results
 ```{r decisionpredict, echo=F,warning=F,message=F}
@@ -625,7 +626,7 @@ We constructed a model to predict participants' decisions in this task, seeking 
 
 We ran this analysis with consideration set size varying from 1-10. At consideration size $k = 1$, the model proportion for a cluster is equal to the likelihood of initially sampling that cluster. At all other consideration set sizes, the average value of the cluster also plays a role. As consideration size increases, initial sampling likelihood plays a less significant role and average value is more significant, with low-probability but high-value actions more likely to be selected by the model.
 
-The model significantly predicted participant responses at all considerations set sizes tested. The model performed best at $k =$ `r optimal_k`, with a correlation of $r =$ `r k_correlations %>% summarise(max(correlation)) %>% pull() %>% round(3)`, $p <$ `r max(.001, k_correlations %>% summarise(min(p_value)) %>% pull())`, and worst at $k =$ `r k_correlations %>% filter(correlation == min(correlation)) %>% pull(k)` with a correlation of $r =$ `r k_correlations %>% summarise(min(correlation)) %>% pull() %>% round(3)`, $p <$ `r max(.001, k_correlations %>% summarise(max(p_value)) %>% pull())`. This aligns with existing research suggesting that people tend to only consider a few options when making decisions (CITE XXX). 
+The model significantly predicted participant responses at all considerations set sizes tested. The model performed best at $k =$ `r optimal_k`, with a correlation of $r =$ `r k_correlations %>% summarise(max(correlation)) %>% pull() %>% round(3)`, $p <$ `r max(.001, k_correlations %>% summarise(min(p_value)) %>% pull())`, and worst at $k =$ `r k_correlations %>% filter(correlation == min(correlation)) %>% pull(k)` with a correlation of $r =$ `r k_correlations %>% summarise(min(correlation)) %>% pull() %>% round(3)`, $p <$ `r max(.001, k_correlations %>% summarise(max(p_value)) %>% pull())`. This aligns with existing research suggesting that people tend to only consider a few options when making decisions. 
 
 ```{r fig3, warning=F, message=F, fig.width=6.5,fig.height=5.25}
 # Figure 3
@@ -656,7 +657,7 @@ fig3 <- decision_results %>%
 
 fig3
 
-# ggsave(figDecision,filename = "../figs/figDecision.png", width = 10, height = 8,units = "in")
+# ggsave(fig3,filename = "../figs/fig3.png", width = 10, height = 8,units = "in")
 
 ```
 
@@ -718,7 +719,7 @@ We averaged all three ratings for each action and took this average as a measure
 ```{r histograms, echo = F}
 ## Figure S2
 # histogram showing the distribution of participant response ratings along with the average ratings for the events we gave to participants
-histograms18 <- pgL %>% #filter(question!="avg") %>%
+figS2 <- pgL %>% #filter(question!="avg") %>%
   mutate(question = factor(question),
          question = factor(c("Value","Morality","Normality","Probability")[question])) %>%
     ggplot(aes(x = response, fill = question, color = question)) +
@@ -750,8 +751,8 @@ histograms18 <- pgL %>% #filter(question!="avg") %>%
     xlab("Value") +
     ylab("Count")
 
-histograms18
-# ggsave(histograms18,filename = "figs/figS2.jpg", width = 7, height = 5,units = "in")
+figS2
+# ggsave(figS2,filename = "../figs/figS2.png", width = 7, height = 5,units = "in")
 
 ```
 
@@ -760,7 +761,7 @@ histograms18
 In order to predict participants' higher level judgments for these generated actions, we developed a novel measure that compared ratings for each action against the set of all participant generated responses for the context. This value, what we're referring to as the *modal distance*, is the proportion of participant generated responses for the context (from [Study 1](#study-1)) that had a higher average rating than the average rating for a given action (from [Study 2](#study-2)). The less normal an answer is, the higher its modal distance value will be (i.e. the more distant it is from the center of the contextual modal space). Importantly, the value is context dependent: an action with an average normality rating of 50 will have a lower modal distance in a context with skewed positive responses than in a context with a more uniform distribution. This value will be used to predict responses in all subsequent studies. \ 
 We also sought to see whether each individual judgment (probability, morality and normality) was separately predictive of high-level judgments. We recalculated the modal distance for each action, except instead of using the averages of probability, morality and normality as the value score for each participant-generated and actual action, we calculated three different scores, one for each type of judgment. This gave use a probability distance, a morality distance and normality distance for each action.
 
-```{r modalDistance, message=F,warning=F,echo=F}
+```{r modalDistancePlot, message=F,warning=F,echo=F}
 ## Figure 4
 # Figure showing how modal distance is calculated
 density13 <-  pgL %>% 
@@ -828,11 +829,11 @@ c13.h <- density13 +
           annotate(geom="text", x=30, y=.022, label="Modal Distance(running away)",
             color="red",alpha=.65) 
 
-# ggsave(c13.h,file="figs/fig4.jpg", width=8, height=6, units="in")
-              
-    
+# ggsave(c13.h,file="../figs/fig4.png", width=8, height=6, units="in")
 
+```
 
+```{r modalDistance, message=F,warning=F,echo=F}
 ### Here where we calculate contextual modal distance for every action
 modalDistTable <- data.frame()
 
@@ -971,7 +972,7 @@ fig5 <- htSum %>% mutate(context=factor(context)) %>%
 
 fig5
 
-# ggsave(fig5,file="figs/fig4.jpg",width = 10,height = 8)
+# ggsave(fig5,file="../figs/fig5.png",width = 10,height = 8)
 
 ```
 
@@ -1222,7 +1223,7 @@ fig6 <- causalSum %>% mutate(context=factor(context)) %>%
                     ,axis.ticks = element_blank()
                   )
 fig6
-# ggsave(fig5,file="figs/fig6.jpg", width = 10, height = 8)
+# ggsave(fig6,file="../figs/fig6.png", width = 10, height = 8)
 
 ## Figure S3
 # Counterfactual relevance vs modal distance for each action
@@ -1247,7 +1248,7 @@ figS3 <- causalSum %>% mutate(context=factor(context)) %>%
                   )
 
 
-# ggsave(figS3,file="figs/figS3.jpg", width = 10, height = 8)
+# ggsave(figS3,file="../figs/figS3.png", width = 10, height = 8)
 
 
 g <- ggplot_build(figS3)
@@ -1366,7 +1367,7 @@ figS4 <- blameSum %>% mutate(context=factor(context)) %>%
                     ,axis.ticks = element_blank()
                   )
 figS4
-# ggsave(figS4, file="figs/figS4.jpg",width=7, height=4, units="in")
+# ggsave(figS4, file="../figs/figS4.png",width=10, height=8, units="in")
 
 ```
 

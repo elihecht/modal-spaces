@@ -1,12 +1,12 @@
 ---
-title: 'Materials for Modal Spaces'
-author: "Jonathan Phillips & Eli Hecht"
-date: "December 2022"
+title: "Materials for Modal Spaces"
+author: "Eli Hecht & Jonathan Phillips"
+date: "March 2024"
 output:
   html_document:
     df_print: paged
-  word_document: default
-  pdf_document: default
+    toc: true
+    toc_float: true
 ---
 
 ```{r setup, include=FALSE}
@@ -262,26 +262,26 @@ figS1
 ```{r tidycoded, warnings = F, echo=F,message=F}
 ## Read in codings of raters 1 and 2
 # rater 1 codings
-coding1 <- read.csv("../manualCoding/texts_coding_rater1.csv") %>% 
+coding1 <- read.csv("../manualCoding/pg_coding_rater1.csv") %>% 
   rename(coding1 = group)
 # rater 2 codings
-coding2 <- read.csv("../manualCoding/texts_coding_rater2.csv") %>% 
+coding2 <- read.csv("../manualCoding/pg_coding_rater2.csv") %>% 
   rename(coding2 = group)
 
 coded <- full_join(coding1, coding2) 
 
 ## Caluclate inter-rater reliability
 # Percent agreement:
-perAgreementHum <- coded %>% 
+perAgreementPg <- coded %>% 
   # filter(manual_group != 0) %>%
   summarise(agree = sum(coding1 == coding2)/n()) %>% pull()
 
 # Cohen's Kappa
-kappaHum <- kappa2(coded[, c("coding1", "coding2")])
+cohkap <- kappa2(coded[, c("coding1", "coding2")])
 
 ## Read in rater 3 codings
 # rater 3 rated in cases of disagreement between the first two raters
-coding3 <- read.csv("../manualCoding/texts_coding_rater3.csv") %>% 
+coding3 <- read.csv("../manualCoding/pg_coding_rater3.csv") %>% 
   rename(codingFinal = coded.final)
 
 # put final coding results (rater 3 in cases of disagreement, rater 1 otherwise) in one dataframe
@@ -293,13 +293,15 @@ coded <- coded %>%
 # link coded, which contains the text and manual grouping of each response, with pgL, which contains the participant ratings of their responses
 coded <- coded %>% separate(scenario_id_fr, into = c("context", "id", "answer"), sep = "_") %>% 
   mutate(across(1:3, as.numeric)) %>% 
-  right_join(pgL %>% filter(question!="avg") %>% group_by(context, id, answer) %>% summarise(value = mean(response)))
+  right_join(pgL %>% group_by(context, id, answer)) %>% 
+  pivot_wider(names_from = question, values_from = response) %>% 
+  rename(value = avg)
 
 # read in coding key, which links numbers of each ratings with their label
-codingKey <- read.csv("../materials/textsCodingKey.csv") %>% 
+codingKey <- read.csv("../manualCoding/textsCodingKey.csv") %>% 
   rename(group = X)
 
-# coded includes participant answers + ratings as well as manual coded groups
+# Add groupText column which contains the name of the group that each response is in
 coded <- codingKey %>%
   pivot_longer(-group, names_to = "context", values_to = "groupText") %>% 
   mutate(across(1:2, parse_number)) %>%
@@ -311,14 +313,14 @@ coded <- codingKey %>%
 
 ```
 
-Two raters manually coded each of the `r nrow(coding1)` participant responses into 13-18 distinct action categories for each context. The criterion for a grouping was that at least three participants generated an action within that category. Two raters independently grouped participant responses with an inter-rater agreement of `r round(perAgreementHum * 100, 1)`% and a Cohen's kappa of `r round(kappaHum$value, 3)` indicating strong inter-rater reliability. A third rater determined final results in cases of disagreements. Action categories for each context are presented in [Table 2](#table-2).
+Two raters manually coded each of the `r nrow(coding1)` participant responses into 13-18 distinct action categories for each context. The criterion for a grouping was that at least three participants generated an action within that category. Two raters independently grouped participant responses with an inter-rater agreement of `r round(perAgreementPg * 100, 1)`% and a Cohen's kappa of `r round(cohkap$value, 3)` indicating strong inter-rater reliability. A third rater determined final results in cases of disagreements. Action categories for each context are presented in [Table 2](#table-2).
 
 #### Results
 
-```{r codingresults, warnings = F, echo=F,message=F}
+```{r manualcodingresults, warnings = F, echo=F,message=F}
 # ranks groups for each context by number of answers 
 bestGroups <- coded %>% group_by(context, group) %>% 
-  summarise(n = n(), mean = mean(value)) %>%
+  summarise(n = n(), mean = mean(value), sd = sd(value)) %>%
   filter(group != 0) %>% 
   group_by(context) %>% 
   mutate(rank = rank(-n, ties.method = "f")) %>% 
@@ -344,26 +346,21 @@ perBestCoded <- coded %>%
 
 
 # for each context do an independent samples t test comparing values of answers in the 3 most commonly used action categories to all other answers
-t_table <- data.frame(context = numeric(0), t = numeric(0), df = numeric(0), p = numeric(0), mean_top3 = numeric(0), sd_top3 = numeric(0), mean_other = numeric(0), sd_other =numeric(0))
-for (c in 1:18) {
-  test <- coded %>% 
-    filter(context == c) %>%
-    with(t.test(value ~ top3))
-  
-  t_table <- bind_rows(t_table, 
-        data.frame(context = c, t = test$statistic, df = test$parameter,
-           p = test$p.value,
-           mean_top3 = coded %>% filter(context == c, top3) %>% summarise(mean(value)) %>% pull(),
-           sd_top3 = coded %>% filter(context == c, top3) %>% summarise(sd(value)) %>% pull(),
-           mean_other = coded %>% filter(context == c, !top3) %>% summarise(mean(value)) %>% pull(),
-           sd_other = coded %>% filter(context == c, !top3) %>% summarise(sd(value)) %>% pull(), n_top3 = coded %>% filter(context == c, top3) %>% nrow(), n_other = coded %>% filter(context == c, !top3) %>% nrow()))
-}
-rm(test)
+ttable_manual <- coded %>%
+  group_by(context) %>%
+  summarise(t_test_result = list(t.test(value ~ top3))) %>%
+  ungroup() %>% 
+  # spread out results for two t tests
+  mutate(t = sapply(t_test_result, function(x) x$statistic),
+    p = sapply(t_test_result, function(x) x$p.value),
+    df = sapply(t_test_result, function(x) x$parameter),) %>% 
+  mutate(p = round(p,4)) %>% 
+  select(-t_test_result)
 ```
 
-We found striking convergence across participant's answers within each context. Only `r round(summarise(coded, otherPer = sum(group==0)/n())[[1]] * 100)`% of answers were labeled as 'other.' Across contexts, only `r round(perBestCoded[[1,2]] * 100)`% of participants did not come up with any of the 3 most common answers in their set of 5 possible actions, and less than `r round(perBestCoded[[1,1]] * 100)`% of participants didn't put down the most popular answer for that context.\
+We found striking convergence across participant's answers within each context. Only `r round(summarise(coded, otherPer = sum(group==0)/n())[[1]] * 100)`% of answers were labeled as 'other.' Across contexts, only `r round(perBestCoded[[1,2]] * 100)`% of participants did not come up with any of the 3 most common answers in their set of 5 possible actions, and only `r round(perBestCoded[[1,1]] * 100)`% of participants didn't put down the most popular answer for that context.\
 Not only did participants converge on a relatively small set of action categories (13-18), but the most common answers also tended to be rated highly. Across contexts, the actions in the three most common categories were rated higher ($M =$ `r coded %>% filter(top3) %>% summarise(mean(value)) %>% pull() %>% round(1)`, $SD =$ `r coded %>% filter(top3) %>% summarise(sd(value)) %>% pull() %>% round(1)`) than other actions ($M =$ `r coded %>% filter(!top3) %>% summarise(mean(value)) %>% pull() %>% round(1)`, $SD =$ `r coded %>% filter(!top3) %>% summarise(sd(value)) %>% pull() %>% round(1)`).\
-This pattern held true within each context. For each context, we performed an independent samples t-test comparing average ratings for answers in the three most popular action categories to answers outside of these categories. For all but `r t_table %>% summarise(sum(p > .001)) %>% pull()` of the 18 contexts t-values were in the expected direction, with $p < .001$.
+This pattern held true within each context. For each context, we performed an independent samples t-test comparing average ratings for answers in the three most popular action categories to answers outside of these categories. For all but `r ttable_manual %>% summarise(sum(p > .001)) %>% pull()` of the 18 contexts t-values were in the expected direction, with $p < .001$.
 
 
 ```{r codingHistograms, results = "asis", warning=F,message=F}
@@ -401,6 +398,154 @@ for (c in c(13)) { ## You can add contexts here if you want to see the correspon
 
 ```
 
+### Algorithmic grouping of participant responses
+```{r clusterRead, echo=F,warning=F,message=F}
+# Read in clustering retsults for possibility generation studies
+
+# Chosen optimal number of clusters for KMeans for each context
+# These values were selected based on the results of the elbow plots for each context
+kMeans_klist <- c(4, 5, 8, 3, 5, 3, 5, 6, 4, 4, 3, 7, 7, 7, 3, 7, 6, 6)
+
+# Chosen optimal values for epsilon and minimum number of samples for DBSCAN
+# These values were selected by visual examination of the resulting plots
+eps = 0.4
+minSamp = 6
+
+# Add k-means and DBSCAN clustering results to clustering_outputs
+clustering_outputs = data.frame()
+for (context in 1:18){
+  # read in kmeans results, reading from appropriate folder depending on the context
+  kmeans_output <- read.csv(paste0('../nlpCoding/pg_clusters/KMeans/k',kMeans_klist[context], "/tables/S", context, ".csv"), row.names = "X") 
+  kmeans_output <- kmeans_output %>% 
+    rename(cluster_K = cluster, cluster_name_K = cluster_name) %>% 
+    mutate(cluster_K = cluster_K + 1)
+  
+  # read in DBSCAN results
+  DBSCAN_output <- read.csv(paste0('../nlpCoding/pg_clusters/DBSCAN/eps',eps, '_samp', minSamp,'/tables/S', context, '.csv'), row.names = 'X')
+  DBSCAN_output <- DBSCAN_output %>% 
+    rename(cluster_DB = cluster, cluster_name_DB = cluster_name) %>% 
+    select(cluster_DB, cluster_name_DB)
+  
+  # label DBSCAN outliers
+  DBSCAN_output <- DBSCAN_output %>% 
+    mutate(cluster_name_DB = if_else(cluster_DB == -1, "other", cluster_name_DB)) %>%
+    mutate(cluster_DB = cluster_DB + 1) 
+  
+  
+  # add DBSCAN clusters to text embedding and kmeans clusters data
+  merged_outputs = bind_cols(kmeans_output, DBSCAN_output, .name_repair = "unique")
+  
+  # add outputs from this scenario to clustering_outputs dataframe
+  clustering_outputs = bind_rows(clustering_outputs, merged_outputs)
+  
+}
+
+# cluster_df contains the possibility generation responses and their cluster assignments for both clustering methods
+cluster_df <- clustering_outputs %>% select(source, id, context, answer, response_original, value, cluster_K, cluster_name_K, cluster_DB, cluster_name_DB) %>% 
+  mutate(cluster_K = as.integer(cluster_K),
+         cluster_DB = as.integer(cluster_DB))
+```
+In addition to manually coding participant responses, we also used natural language processing to group similar responses. We computed sentence embeddings for all responses in each scenario using [Sentence-BERT](www.sbert.net) and reduced the dimensionality of the embedding space using [UMAP](umap-learn.readthedocs.io/en/). We clustered the resulting embeddings using two methods, DBSCAN and k-means. For k-means, we performed clustering at a range of k-values and determined the ideal number of clusters for each context by visual inspecting the resulting [elbow plots](../nlpCoding/pg_clusters/KMeans/kplots/). For DBSCAN we selected values for $\epsilon$, or neighborhood size, and minimum number of samples by testing a range of values and visually inspecting the resulting the plots. The analysis used is provided in [nlpCoding.ipynb](../nlpCoding/nlpCoding.ipynb).
+
+Using the elbow method to determine optimal number of clusters for k-means, the number of clusters by context ranged from `r cluster_df %>% group_by(context) %>% summarize(max(cluster_K)) %>% pull() %>% min()` to `r cluster_df %>% group_by(context) %>% summarize(max(cluster_K)) %>% pull() %>% max()` clusters. For DBSCAN, we selected values of $\epsilon =$ `r eps` and $minSamples =$ `r minSamp` as the parameters that resulted in the most semantically-meaningful clusters across contexts. At these values, the number of clusters per context ranged from `r cluster_df %>% group_by(context) %>% summarize(max(cluster_DB)) %>% pull() %>% min()` to `r cluster_df %>% group_by(context) %>% summarize(max(cluster_DB)) %>% pull() %>% max()`.
+
+
+#### Results
+```{r NLPcodingresults, warnings = F, echo=F,message=F}
+# rank k-means clusters for each context by number of answers 
+clustersRankedK <- cluster_df %>%
+  group_by(context, cluster_K, cluster_name_K) %>% 
+  summarise(n = n(), mean = mean(value), sd = sd(value)) %>% 
+  group_by(context) %>% 
+  mutate(rank = rank(-n, ties.method = "f")) %>% 
+  unite("context_cluster", context, cluster_K)
+
+
+# adds columns with information about whether a given answer is in the top 1 or 3 most picked k-means clusters for that context
+cluster_df <- cluster_df %>% unite("context_cluster", context, cluster_K, remove = F) %>%
+  ungroup() %>% 
+  mutate(best_K = context_cluster %in%
+           (clustersRankedK %>% filter(rank == 1) %>% pull(context_cluster)), 
+         top3_K = context_cluster %in%
+           (clustersRankedK %>% filter(rank <= 3) %>% pull(context_cluster))) %>%
+  separate(context_cluster, into = c("context", "cluster_K"), sep = "_")
+
+## repeat above but with DBSCAN clusters
+# rank DBSCAN clusters for each context by number of answers 
+clustersRankedDB <- cluster_df %>%
+  group_by(context, cluster_DB, cluster_name_DB) %>% 
+  summarise(n = n(), mean = mean(value), sd = sd(value)) %>% 
+  filter(cluster_DB != 0) %>% # filter DBSCAN outliers
+  group_by(context) %>% 
+  mutate(rank = rank(-n, ties.method = "f")) %>% 
+  unite("context_cluster", context, cluster_DB)
+
+
+# adds columns with information about whether a given answer is in the top 1 or 3 most picked DBSCAN clusters for that context
+cluster_df <- cluster_df %>% unite("context_cluster", context, cluster_DB, remove = F) %>%
+  ungroup() %>% 
+  mutate(best_DB = context_cluster %in%
+           (clustersRankedDB %>% filter(rank == 1) %>% pull(context_cluster)), 
+         top3_DB = context_cluster %in%
+           (clustersRankedDB %>% filter(rank <= 3) %>% pull(context_cluster))) %>% 
+  separate(context_cluster, into = c("context", "cluster_DB"), sep = "_")
+
+
+
+
+# percentage of participants who didn't come up with any of the most picked answers for that context. Calculated for both k-means and DBSCAN clusters
+perBestClusterNLP <- cluster_df %>% 
+  group_by(context, id) %>% 
+  summarise(noneBest_K = !any(best_K),
+            noneTop3_K = !any(top3_K),
+            noneBest_DB = !any(best_DB),
+            noneTop3_DB = !any(top3_DB)) %>%
+  ungroup() %>% 
+  summarise(noneBest_K = sum(noneBest_K)/n(),
+            noneTop3_K = sum(noneTop3_K)/n(),
+            noneBest_DB = sum(noneBest_DB)/n(),
+            noneTop3_DB = sum(noneTop3_DB)/n())
+
+
+# for each context and clustering method do an independent samples t test comparing values of answers in the 3 most commonly used action categories to all other answers
+ttable_NLP <- cluster_df %>%
+  group_by(context) %>%
+  summarise(
+    # t_test_result_K = 
+    #           if_else(
+    #             more_than_3, 
+    #             # "list(t.test(value ~ top3_K))",
+    #                  NA),
+            t_test_result_DB = list(t.test(value ~ top3_DB))) %>%
+  ungroup() %>% 
+  # spread out results for two t tests
+  mutate(
+    # t_K = sapply(t_test_result_K, function(x) x$statistic),
+    # p_K = sapply(t_test_result_K, function(x) x$p.value),
+    # df_K = sapply(t_test_result_K, function(x) x$parameter),
+    t_DB = sapply(t_test_result_DB, function(x) x$statistic),
+    p_DB = sapply(t_test_result_DB, function(x) x$p.value),
+    df_DB = sapply(t_test_result_DB, function(x) x$parameter),
+    ) %>% 
+  mutate(
+    # p_K = round(p_K,4),
+         p_DB = round(p_DB,4)) %>% 
+  select(-c(
+    # t_test_result_K,
+    t_test_result_DB))
+
+```
+
+Using the clustering results with the DBSCAN alogirthm, as with manually grouped responses, we found striking convergence across participant's answers within each context. Only `r round(summarise(cluster_df, otherPer = sum(cluster_DB==0)/n())[[1]] * 100,1)`% of answers were labeled as 'outliers' by the algorithm, analogous to our finding for 'other' responses using manual coding. Across contexts, only `r round(perBestClusterNLP[[1,4]] * 100, 1)`% of participants did not come up with any of the 3 most common answers in their set of 5 possible actions, and only `r round(perBestClusterNLP[[1,3]] * 100, 1)`% of participants didn't put down the most popular answer for that context.
+
+Unlike with the manual coding results, the actions in the three most common DBSCAN clusters were not significantly higher ($M =$ `r cluster_df %>% filter(top3_DB) %>% summarise(mean(value)) %>% pull() %>% round(1)`, $SD =$ `r cluster_df %>% filter(top3_DB) %>% summarise(sd(value)) %>% pull() %>% round(1)`) than other actions ($M =$ `r cluster_df %>% filter(!top3_DB) %>% summarise(mean(value)) %>% pull() %>% round(1)`, $SD =$ `r cluster_df %>% filter(!top3_DB) %>% summarise(sd(value)) %>% pull() %>% round(1)`).
+
+
+We found similar results using the clustering results from the k-means algorithm. There is no equivalent 'outlier' or 'other' labeling in k-means, so percentage of responses being classified as 'other' was not calculated. Across contexts, only `r round(perBestClusterNLP[[1,2]] * 100, 1)`% of participants did not come up with any of the 3 most common answers in their set of 5 possible actions, and only `r round(perBestClusterNLP[[1,1]] * 100, 1)`% of participants didn't put down the most popular answer for that context. 
+
+Because of the low number of clusters (`r cluster_df %>% group_by(context) %>% summarize(max(cluster_K)) %>% pull() %>% min()`-`r cluster_df %>% group_by(context) %>% summarize(max(cluster_K)) %>% pull() %>% max()`) obtained using k-means with the elbow-method, we did not compare actions in the three most common categories to actions in the other categories.
+
+
 ## Study 2: First-person decision making
 ### Participants
 ```{r participantsdecision, echo=F,warning=F,message=F}
@@ -411,161 +556,97 @@ decisionW <- read.csv("../data/decision.csv") %>%
 # List of ids of participants who gave nonsensical answers
 exclude_ids <- c(21, 64, 72, 74, 84, 86, 89)
 ```
-
-Critically, we are not only interested in finding a way of describing the space
-of contextually relevant possibilities, but in demonstrating that these representations play a domain-general role in high-level cognition. We first tested
-whether we could use this model of contextual possibility space to predict
-responses in a first-person decision-making task. We modified our original 18
-scenarios, replacing all names and pronouns referring to the agent with second-
-person pronouns (see [Table 1](#table-1) for the modified scenarios). 
-We collected a sample of `r length(unique(decisionW$id))` participants ($M_{age}$ = `r round(mean(decisionW$age,na.rm=T),2)`; $SD_{age}$ = `r round(sd(decisionW$age,na.rm=T),2)`; `r table(decisionW$gender)[[2]]` females) from Amazon Mechanical Turk ([www.mturk.com](www.mturk.com)). `r table(decisionW$finished)[[1]]` participants did not finish the study and we're excluded from further analysis. `r length(exclude_ids)` participants gave nonsensical/unclear responses, so their data was also excluded from analysis.
+ We collected a sample of `r length(unique(decisionW$id))` participants ($M_{age}$ = `r round(mean(decisionW$age,na.rm=T),2)`; $SD_{age}$ = `r round(sd(decisionW$age,na.rm=T),2)`; `r table(decisionW$gender)[[2]]` females) from Amazon Mechanical Turk ([www.mturk.com](www.mturk.com)). `r table(decisionW$finished)[[1]]` participants did not finish the study and we're excluded from further analysis. `r length(exclude_ids)` participants gave nonsensical/unclear responses, so their data was also excluded from analysis.
 
 ### Procedure
-Each participant viewed all 18 contexts with modified pronouns in randomized order. After reading each context, participants were asked "In this situation, what would you decide to do?" and were given a free-response text box to write their answer within.
+We modified our original 18 scenarios, replacing all names and pronouns referring to the agent with second-person pronouns (see [Table 1](#table-1) for the modified scenarios). Each participant viewed all 18 contexts with modified pronouns in randomized order. After reading each context, participants were asked "In this situation, what would you decide to do?" and were given a free-response text box to write their answer within.
 
-### Algorithmic grouping of participant responses
+### Manual grouping
 ```{r tidydecision, echo=F,warning=F,message=F}
+# read in first raters manual grouping of decision responses
+coding1 <- read.csv("../manualCoding/decision_coding_rater1.csv", row.names = "X") %>% 
+  rename(rater1 = group)
 
-decisionL <- decisionW %>% 
-  # remove participants who didn't finish the study
-  filter(finished) %>% 
-  select(id, S1_1:S18_1) %>% 
-  # transform dataframe to long format
-  pivot_longer(-id, names_to = "context", values_to = "decision",
-               values_drop_na = T) %>%
-  # select number for context names ("S18_1" -> 18)
-  mutate(context = parse_number(context))
+# read in first raters manual grouping of decision responses  
+coding2 <- read.csv("../manualCoding/decision_coding_rater2.csv", row.names = "X")%>% 
+  rename(rater2 = group)
+  
+decisionCoded <- full_join(coding1, coding2, by = join_by(id, context, text))
 
-# remove participants who gave meaningless responses
-# (Note: remove the negation to view their responses)
-decisionL <- decisionL %>% filter(!(id %in% exclude_ids)) 
-```
-
-Instead of manually coding the first-person decision responses, we used natural language processing to group similar responses. First, we aggregated the responses from the original possibility generation study and the decision study, stripping all agent names and pronouns from the responses. We then computed sentence embeddings for all responses using [Sentence-BERT](www.sbert.net), reduced the dimensionality of the embedding space using [UMAP](umap-learn.readthedocs.io/en/), and performed k-means clustering on the resulting embeddings, with the number of clusters selected using the elbow method. The analysis used is provided in [nlpCoding/decision_NLP.ipynb](../nlpCoding/decision_NLP.ipynb). 
-
-```{r clusterRead, echo=F,warning=F,message=F}
-# Read in clustering results using two methods from decision_NLP.ipynb
-cluster_tables_numManual <- list.files('../nlpCoding/numManual/cluster_tables', full.names = T)
-cluster_tables_numElbow <- list.files('../nlpCoding/numElbow/cluster_tables', full.names = T)
-
-
-# create a dataframe to aggregating all NLP clustering outputs 
-clustering_outputs <- data.frame()
-for (file in cluster_tables_numManual) {
-  output <- read.csv(file, row.names="X")
-  output <- output %>% mutate(clustering_method = "numManual")
-  clustering_outputs <- bind_rows(clustering_outputs, output)
-}
-for (file in cluster_tables_numElbow) {
-  output <- read.csv(file, row.names="X")
-  output <- output %>% mutate(clustering_method = "numElbow")
-  clustering_outputs <- bind_rows(clustering_outputs, output)
-}
-
-
-cluster_df <- clustering_outputs %>% 
-  select(id, context, answer, response_original, source, value, clustering_method, cluster, cluster_name, 
-         )
-
-# filter to just responses from the possibility generation study, with clusters determined using the same number as the manual groupings
-cluster_df_numManual <- cluster_df %>% 
-              filter(source == 'pg' & clustering_method == 'numManual') %>%
-              select(-c(source, value, response_original)) %>% 
-              unite(key, id, context, answer)
-
-# join the above dataframe with the manual groupings in order to compare the human and NLP clustering results
-cluster_compare <- coded %>% 
-  unite(key, id, context, answer, sep = "_") %>%
-  rename(response = text, manual_group = group) %>% 
-  left_join(y = cluster_df_numManual,
-            by = join_by(key)) %>% 
-  separate(key, into = c("id", "context", "answer")) %>% 
-  select(context, id, answer, response, 
-         manual_group, cluster, groupText, cluster_name, value) %>% 
-  mutate(context= as.integer(context))
-
-# For each cluster, finds manual group # with the highest shared number of responses
-biggest_manual_group_by_cluster <- cluster_compare %>% 
-  group_by(context, cluster, 
-           cluster_name,
-           manual_group, 
-           groupText
-           ) %>% 
-  summarise(n = n(), .groups = "keep") %>% # calculates number of each manual group to NLP context pair
-  group_by(context, cluster) %>% 
-  arrange(desc(n)) %>% # within each cluster, sorts by number
-  slice(1) %>% # select manual group with highest number of responses in each cluster
-  select(-n) %>% 
-  rename(biggest_manual_group_by_cluster = manual_group) 
-
-# Viewing this dataframe suggests allignment in the manual and NLP groupings
-cluster_compare <- cluster_compare %>% 
-  # left_join(manual_group_of_centroid %>% select(-cluster_name), by = join_by(context, cluster)) %>% 
-  left_join(biggest_manual_group_by_cluster %>% select(-groupText), by = join_by(context, cluster, cluster_name)) 
-
-
-
-
-## Inter-rater reliability of manual grouping and clustering algorithm 
-
+## Caluclate inter-rater reliability
 # Percent agreement:
-perAgreementNLP <- cluster_compare %>% 
+perAgreementDecision <- decisionCoded %>% 
   # filter(manual_group != 0) %>%
-  summarise(
-    # group_same_as_cluster_centroid = sum(manual_group == manual_group_of_centroid)/n(),
-            group_same_as_majority_of_cluster = sum(manual_group == biggest_manual_group_by_cluster)/n()) %>% pull()
+  summarise(agree = sum(rater1 == rater2)/n()) %>% pull()
 
-cluster_compare <- cluster_compare %>% 
-  mutate(biggest_manual_group_by_cluster = as.factor(biggest_manual_group_by_cluster),
-         manual_group = as.factor(manual_group)) 
+# Cohen's Kappa
+cohkapDecision <- kappa2(decisionCoded[, c("rater1", "rater2")])
 
-kappaNLP <- kappa2(cluster_compare[, c("biggest_manual_group_by_cluster", "manual_group")])
+## Read in rater 3 codings
+# rater 3 rated in cases of disagreement between the first two raters
+coding3 <- read.csv("../manualCoding/decision_coding_rater3.csv")
 
 
+# put final coding results (rater 3 in cases of disagreement, rater 1 otherwise) in one dataframe
+decisionCoded <- decisionCoded %>% 
+  full_join(coding3 %>% select(-rater1, -rater2), by = join_by(id, context, text)) %>% 
+  mutate(group = if_else(is.na(rater3), rater1, rater3)) %>% 
+  select(id, context, text, group) 
+
+
+# remove participant's who didn't take study seriously and specific non-sensical answers
+decisionCoded <- decisionCoded %>% filter(!(id %in% exclude_ids) & group != -99)
 ```
+Once again, two raters manually coded each of the `r nrow(coding1)` participant responses into 13-18 distinct action categories for each context. The same action categories as were found for [Study 1](#study-1-possibility-generation) previously were used (see [Table 2](#table-2)). Two raters independently grouped participant responses with an inter-rater agreement of `r round(perAgreementDecision * 100, 1)`% and a Cohen's kappa of `r round(cohkapDecision$value, 3)` indicating strong inter-rater reliability. A third and a fourth rater determined final results in cases of disagreements.
 
-Because we used K-means clustering, we had to specify the number of clusters to be used for each scenario. First we set the number of clusters for each context to be identical to the number of manual groups used for that context, in order to directly compare the performance of our manual grouping and the algorithmic clustering.
-
-Qualitatively, the clusters generated were semantically meaningful, with similar types of answers being grouped together, even when the exact words differed (for example, see [cluster plot for context 13 ](../nlpCoding/numSameAsManual/plots/S13.html)). We further calculated the agreement between the clustering method and our manual groupings. Each cluster was assigned to a manual grouping by determining which manual grouping accounted the largest amount of responses within the cluster. Note that because the manual grouping method and the NLP clustering segmented semantic space differently, two different clusters could be linked to the same manual grouping if a plurality of responses in both clusters were grouped together. A given response was manually coded into the same manual group as the plurality of its cluster `r round(perAgreementNLP * 100,1)`% of the time. Treating the manual grouping method and the clustering method as two different raters we found a Cohen's kappa coefficient of `r round(kappaNLP$value,3)` suggesting strong agreement between the clustering and the manual grouping methods.
-
-Having verified that the clustering method generated similar results as human raters when using the same number of clusters, we concluded that the clustering method was effective at identifying semantically meaningful action categories. However, for further analysis, we sought to use a more data-driven approach to determining the appropriate number of clusters. For each context, we generated an 'elbow plot' to determine the appropriate number of clusters. For instance the [elbow plot for context 13 ](../nlpCoding/numElbow/elbow_plots/S13.png) was assessed as suggesting an optimal number of clusters at k = 7. We then re-ran the clustering analysis used above with the k-values obtained from these elbow plots.
-
-### Results
-```{r decisionpredict, echo=F,warning=F,message=F}
+#### Results
+```{r decisionPredictManual, echo=F,warning=F,message=F}
 ## Here we model participant behavior in the first-person decision study
 
-# filter to clustering results obtained using k as determined by elbow method for k-means
-cluster_df_elb <- cluster_df %>% filter(clustering_method == 'numElbow')
-
-# calculate average value of possibility generation responses for each cluster
-pg_clusters <- cluster_df_elb %>%
-  filter(source == 'pg') %>% 
-  group_by(context, cluster, cluster_name) %>% 
-  summarise(avg_value_pg = mean(value), n_pg = n(), .groups = "drop") %>% 
+# calculate average value of and proportion of possibility generation responses for each k-means cluster
+pg_groups <- coded %>% 
+  mutate(context = as.integer(context),
+         group = as.integer(group)) %>% 
+  group_by(context, group) %>% 
+  summarise(avg_value_pg = mean(value),
+            avg_prob_pg = mean(Probability),
+            avg_moral_pg = mean(Morality),
+            avg_norm_pg = mean(Normality),
+            n_pg = n(),
+            .groups = "drop") %>% 
   group_by(context) %>% 
-  mutate(proportion_pg = n_pg/sum(n_pg)) 
+  mutate(proportion_pg = n_pg/sum(n_pg),
+         group = as.integer(group))
 
 # calculate proportion of decision responses for each context being grouped into each cluster
-decision_clusters <- cluster_df_elb %>% 
-  filter(source == 'decision') %>% 
-  group_by(context, cluster, cluster_name) %>% 
+dec_groups <- decisionCoded %>% 
+  mutate(context = as.integer(context),
+         group = as.integer(group)) %>% 
+  group_by(context, group) %>% 
   summarise(n_decision = n(), .groups = "drop") %>% 
   group_by(context) %>% 
   mutate(proportion_decision = n_decision/sum(n_decision)) 
 
-
 ## Model:
 ### Step 1: Sample k samples from pg for a given context.
-### Step 2: select response  with highest cluster value.
-### Repeat 1000 times, summarise to get proportion of times each cluster is selected for a given scenario
+### Step 2: select response  with highest manualgroup value.
+### Repeat 10,000 times, summarise to get proportion of times each group is selected for a given scenario
 
-# Function to perform the decision model for a given k
-run_decision_model <- function(k, df, pg_clusters, sample_sets) {
-  print(paste("k =", k))
-  
-  decision_model <- df %>% 
-    filter(source == 'pg' & clustering_method == 'numElbow') %>%
-    left_join(pg_clusters, by = join_by(context, cluster, cluster_name)) %>% 
+# Specify the range of k values
+k_values <- 1:10
+# Specify how many consideration sets are sampled
+sample_sets = 10000
+
+
+# Function to perform the decision model for a given consideration set size k
+run_decision_model <- function(k, sample_sets, df, pg_groups, decision_groups, pg_value_column) {
+  # print(paste("k =", k))
+
+    decision_model <- df %>%
+    mutate(context = as.integer(context),
+           group = as.integer(group)) %>% 
+    left_join(pg_groups,
+              by = join_by(context, group)) %>%
     group_by(context) %>%
     # sample k * sample_sets responses with replacement from each context
     sample_n(k * sample_sets, replace = TRUE) %>%
@@ -575,71 +656,162 @@ run_decision_model <- function(k, df, pg_clusters, sample_sets) {
     # take the response with the highest avg value of cluster
     arrange(desc(avg_value_pg)) %>%
     slice(1) %>%
-    group_by(context, cluster) %>%
+    group_by(context, group) %>%
     # summarise likelihood of being selected for each cluster within each context
-    summarise(model_proportion = n() / sample_sets, .groups = "drop")
-  
+    summarise(model_proportion = n() / sample_sets, .groups = "drop") 
+
   # join decision model with pg_clusters and decision_clusters add contexts that were never sampled by the model
-  clusters_summarized <- left_join(pg_clusters, decision_model,
-                                   by = join_by(context, cluster)) %>%
-    left_join(decision_clusters, by = join_by(context, cluster, cluster_name)) %>% 
+  clusters_summarized <- left_join(
+    pg_groups, decision_model,
+    by = join_by(context, group)) %>% 
+    mutate(group = as.integer(group)) %>% 
+    left_join(decision_groups,
+              by = join_by(context, group)) %>% 
     # replace NA values (clusters that were never sampled) with 0
-    mutate(model_proportion = if_else(is.na(model_proportion), 0, model_proportion),
-           proportion_decision = if_else(is.na(proportion_decision), 0, proportion_decision)) %>% 
-    mutate(k = k)
-  
+    mutate(model_proportion = 
+             if_else(is.na(model_proportion), 0, model_proportion),
+           proportion_decision = 
+             if_else(is.na(proportion_decision), 0, proportion_decision),
+           k = k)
   return(clusters_summarized)
 }
 
-# Specify the range of k values
-k_values <- 1:10
-# Specify how many consideration sets are sampled
-sample_sets = 10000
+# # Check if decision results has already been computed, if so uses the dataframe stored
+# if(file.exists("../computationOutputs/decisionResults.rda")){
+#   decision_results <- readRDS(file = "../computationOutputs/decisionResults.rda")
+# } else {
+#   # Otherwise run the decision model for each k value
+#   decision_results <- map_df(k_values,
+#                              ~ run_decision_model(.x, cluster_df, 
+#                                                   pg_clusters, sample_sets))
+#   
+#   # Store results in computationOutputs
+#   decision_results %>% saveRDS(file = "../computationOutputs/decisionResults.rda")
+# }
+
+# run  model for predicting decision likelihood of manual groups at all consideration set sizes
+# use mean of the average of all 3 ratings of cluster as the value measure
+decision_results <- map_df(k_values,
+                             ~ run_decision_model(.x,
+                                                  sample_sets,
+                                                  coded, 
+                                                  pg_groups, 
+                                                  dec_groups,
+                                                  "avg_value_pg"))
+
+# run  model for predicting decision likelihood of manual groups at all consideration set sizes
+# use mean of the probability ratings of cluster as the value measure
+decision_results_prob <- map_df(k_values,
+                             ~ run_decision_model(.x,
+                                                  sample_sets,
+                                                  coded, 
+                                                  pg_groups, 
+                                                  dec_groups,
+                                                  "avg_prob_pg"))
+
+# run  model for predicting decision likelihood of manual groups at all consideration set sizes
+# use mean of the probability ratings of cluster as the value measure
+decision_results_moral <- map_df(k_values,
+                             ~ run_decision_model(.x,
+                                                  sample_sets,
+                                                  coded, 
+                                                  pg_groups, 
+                                                  dec_groups,
+                                                  "avg_moral_pg"))
+
+# run  model for predicting decision likelihood of manual groups at all consideration set sizes
+# use mean of the normality ratings of cluster as the value measure
+decision_results_norm <- map_df(k_values,
+                             ~ run_decision_model(.x,
+                                                  sample_sets,
+                                                  coded, 
+                                                  pg_groups, 
+                                                  dec_groups,
+                                                  "avg_norm_pg"))
 
 
-# Check if decision results has already been computed, if so uses the dataframe stored
-if(file.exists("../computationOutputs/decisionResults.rda")){
-  decision_results <- readRDS(file = "../computationOutputs/decisionResults.rda")
-} else {
-  # Otherwise run the decision model for each k value
-  decision_results <- map_df(k_values,
-                             ~ run_decision_model(.x, cluster_df, 
-                                                  pg_clusters, sample_sets))
-  
-  # Store results in computationOutputs
-  decision_results %>% saveRDS(file = "../computationOutputs/decisionResults.rda")
-}
 
 
-# table with model correlations and p values for 1 <= k <= 10
-k_correlations <- decision_results %>% group_by(k) %>%
+# table with manual grouping decision model correlations and p values for 1 <= k <= 10
+k_correlations <- decision_results %>% 
+  group_by(k) %>%
   summarise(correlation = cor.test(model_proportion, proportion_decision)$estimate,
-            p_value = cor.test(model_proportion, proportion_decision)$p.value)
+            p_value = cor.test(model_proportion, proportion_decision)$p.value)  
 
-# the k-value from the above correlations table with the highest correlation is assessed as the optimal consideration-set size
-optimal_k <- k_correlations %>% arrange(p_value) %>% slice(1) %>% pull(k)
+# table with manual grouping decision model correlations and p values for 1 <= k <= 10
+# for value computed using probability
+k_correlations_prob <- decision_results_prob %>% 
+  group_by(k) %>%
+  summarise(correlation = cor.test(model_proportion, proportion_decision)$estimate,
+            p_value = cor.test(model_proportion, proportion_decision)$p.value) 
 
-# selects results from decision model with k=2 as determined by above analysis
-cor_result <- with(decision_results %>% filter(k==optimal_k), cor.test(model_proportion, proportion_decision))
+k_correlations_moral <- decision_results_moral %>% 
+  group_by(k) %>%
+  summarise(correlation = cor.test(model_proportion, proportion_decision)$estimate,
+            p_value = cor.test(model_proportion, proportion_decision)$p.value) 
+
+k_correlations_norm <- decision_results_norm %>% 
+  group_by(k) %>%
+  summarise(correlation = cor.test(model_proportion, proportion_decision)$estimate,
+            p_value = cor.test(model_proportion, proportion_decision)$p.value) 
+
+
+# selects results from decision model with consideration set size k=3 in line with pre-existing models
+cor_result <- with(decision_results %>% filter(k==3), cor.test(model_proportion, proportion_decision))
+
 ```
-We constructed a model to predict participants' decisions in this task, seeking to predict the likelihood of responses within each cluster being selected as participant's decisions. In-keeping with pre-existing two-step models of decision-making ([Morris et al.](https://doi.org/10.1177/09567976211005702)), the model first constructed a consideration set by sampling actions from participants' responses to [Study 1](#study-1). It then ranked actions within each consideration set using average participant ratings for the cluster each action fell into, with the highest ranked action within each set being selected as the final decision. This process was repeated 10,000 times for each context, allowing us to calculate the likelihood of an action from each cluster being chosen as the model's decision.
+We constructed a model to predict the likelihood of a person selecting a response in a given cluster as their decision. In-keeping with pre-existing two-step models of decision-making ([Morris et al.](https://doi.org/10.1177/09567976211005702)), for each context, the algorithm first sampled a consideration set of participant responses from [Study 1](#study-1-possibility-generation). It assigned a value to each response based on the average participant ratings of responses from the cluster it was assigned and selected the response within each set with the highest value. We then calculated the likelihood of answers from each cluster being selected by this model across `r sample_sets` sampled consideration sets. 
 
-We ran this analysis with consideration set size varying from 1-10. At consideration size $k = 1$, the model proportion for a cluster is equal to the likelihood of initially sampling that cluster. At all other consideration set sizes, the average value of the cluster also plays a role. As consideration size increases, initial sampling likelihood plays a less significant role and average value is more significant, with low-probability but high-value actions more likely to be selected by the model.
+We ran this analysis with consideration set size varying from `r min(k_values)`-`r max(k_values)`. At consideration size $k = 1$, the model proportion for a cluster is equal to the likelihood of initially sampling that cluster. At all other consideration set sizes, the average value of the cluster also plays a role. As consideration size increases, initial sampling likelihood plays a less significant role and average value is more significant, with low-probability but high-value actions more likely to be selected by the model.
 
-The model significantly predicted participant responses at all considerations set sizes tested. The model performed best at $k =$ `r optimal_k`, with a correlation of $r =$ `r k_correlations %>% summarise(max(correlation)) %>% pull() %>% round(3)`, $p <$ `r max(.001, k_correlations %>% summarise(min(p_value)) %>% pull())`, and worst at $k =$ `r k_correlations %>% filter(correlation == min(correlation)) %>% pull(k)` with a correlation of $r =$ `r k_correlations %>% summarise(min(correlation)) %>% pull() %>% round(3)`, $p <$ `r max(.001, k_correlations %>% summarise(max(p_value)) %>% pull())`. This aligns with existing research suggesting that people tend to only consider a few options when making decisions. 
+We then calculated the correlation between the likelihood of a response from a given cluster being selected by this model and the likelihood of a participant selecting a response from the same cluster as their decision. The correlation was significant at all consideration set sizes tested (`r round(min(k_correlations$correlation), 3)` $<r<$ `r round(max(k_correlations$correlation),3)`, all at $p< 0.001$). It was highest at a consideration set size of $k =$ `r k_correlations %>% arrange(-correlation) %>% slice(1) %>% pull(k)`.
+
+We also re-ran the model three times, separately using average probability, average morality, and average normality of responses for each cluster as our measure of cluster value instead of using the average of these three ratings. Using average probability, the model performed similarly using all three ratings (`r round(min(k_correlations_prob$correlation), 3)` $<r<$ `r round(max(k_correlations_prob$correlation),3)` using probability ratings, `r round(min(k_correlations_moral$correlation), 3)` $<r<$ `r round(max(k_correlations_moral$correlation),3)` using morality ratings, and `r round(min(k_correlations_norm$correlation), 3)` $<r<$ `r round(max(k_correlations_norm$correlation),3)` using normality ratings, all at $p<.001$). At $k=$ the decision model using probability ratings had a correlation of `r round(k_correlations_prob$correlation[3], 3)`, the decision model using morality ratings had a correlation of `r round(k_correlations_moral$correlation[3], 3)`, and the decision model using normality ratings had a correlation of `r round(k_correlations_norm$correlation[3], 3)`.
 
 ```{r fig3, warning=F, message=F, fig.width=6.5,fig.height=5.25}
 # Figure 3
 # Decision model results
 
-fig3 <- decision_results %>% 
+fig3_df <- decision_results %>% 
   # filter to optimal cluster size (k=2)
-  filter(k == optimal_k) %>% 
-  mutate(context = as.factor(context)) %>% 
-  ggplot(aes(x = model_proportion, y = proportion_decision)) +
-  geom_point(aes(color = context, group = cluster_name)) +
+  filter(k == 3) %>%
+  mutate(context = as.factor(context)) 
+
+
+# Add groupText column which contains the name of the group that each response is in
+fig3_df <- codingKey %>%
+  pivot_longer(-group, names_to = "context", values_to = "groupText") %>% 
+  mutate(across(1:2, parse_number)) %>%
+  unite(col = "context_group", context, group, sep = "_") %>% 
+  filter(groupText != "") %>%
+  right_join(fig3_df %>% mutate(context_group = paste(context, group, sep = "_"))) 
+
+
+fig3 <- fig3_df  %>% 
+  ggplot(aes(x = model_proportion, y = proportion_decision, label = groupText)) +
+  geom_point(aes(color = context)) +
   geom_smooth(method = "lm") +
+  # geom_segment(data = . %>% filter(context == 13),
+  #              aes(x = model_proportion,
+  #                y = proportion_decision,
+  #              xend = model_proportion , yend = proportion_decision),
+  #              # arrow = arrow(length = unit(0.3, "cm"))
+  #              ) +
+  # geom_text_repel(data = . %>% filter(context == 13),
+  #           size = 3,  # Adjust the label size as needed
+  #   fill = "white",  # Set the background color of the label
+  #   color = "black", # Set the border color of the label
+  #   label.padding = unit(0.2, "lines"),  # Adjust the padding around the label text
+  #   box.padding = unit(0.2, "lines") ) +           # Set the color of the leader lines) +
   labs(x = "Modeled Decision Likelihood", y = "Actual Decision Likelihood",) +
+  # geom_label(data = . %>% filter(context == 13),
+  #            fill = "white",
+  #            color = "black",
+  #            label.padding = unit(0.2, "lines"),
+  #            label.size = 0.05,
+  #            label.box = "round",
+  #            min.segment.length = 0,
+  #            ) +
   theme_bw() +
     theme(
       plot.background = element_blank()
@@ -660,6 +832,202 @@ fig3
 # ggsave(fig3,filename = "../figs/fig3.png", width = 10, height = 8,units = "in")
 
 ```
+
+
+### Algorithmic grouping of participant responses
+```{r clusterReadDecision, echo=F,warning=F,message=F}
+# read in clusters for aggregated possibility generation and decision studies
+
+# Chosen optimal number of clusters for KMeans for each context
+# these numbers were selected based on the results of the elbow plots for each context
+kMeans_klist <- c(4, 8, 8, 5, 7, 6, 5, 6, 4, 4, 3, 5, 6, 6, 4, 8, 7, 6)
+
+
+# Chosen optimal values for epsilon and minimum number of samples for DBSCAN
+eps = 0.4
+minSamp = 6
+
+# Add k-means and DBSCAN clustering results to clustering_outputs
+clustering_outputs = data.frame()
+for (context in 1:18){
+  # read in kmeans results
+  kmeans_output <- read.csv(paste0('../nlpCoding/pg_decision_clusters/KMeans/k',kMeans_klist[context], "/tables/S", context, ".csv"), row.names = "X") 
+  kmeans_output <- kmeans_output %>% 
+    rename(cluster_K = cluster, cluster_name_K = cluster_name) %>% 
+    mutate(cluster_K = cluster_K + 1)
+  
+  # read in DBSCAN results
+  DBSCAN_output <- read.csv(paste0('../nlpCoding/pg_decision_clusters/DBSCAN/eps',eps, '_samp', minSamp,'/tables/S', context, '.csv'), row.names = 'X')
+  DBSCAN_output <- DBSCAN_output %>% 
+    rename(cluster_DB = cluster, cluster_name_DB = cluster_name) %>% 
+    select(cluster_DB, cluster_name_DB)
+  
+  # label DBSCAN outliers
+  DBSCAN_output <- DBSCAN_output %>% 
+    mutate(cluster_name_DB = if_else(cluster_DB == -1, "other", cluster_name_DB)) %>%
+    mutate(cluster_DB = cluster_DB + 1) 
+  
+  
+  # add DBSCAN clusters to text embedding and kmeans clusters data
+  merged_outputs = bind_cols(kmeans_output, DBSCAN_output, .name_repair = "unique")
+  
+  # add outputs from this scenario to clustering_outputs dataframe
+  clustering_outputs <- bind_rows(clustering_outputs, merged_outputs)
+  
+}
+
+decision_clusters <- clustering_outputs %>% select(source, id, context, answer, response_original, value, cluster_K, cluster_name_K, cluster_DB, cluster_name_DB)
+
+
+```
+
+Once again, in addition to manually coding participant responses, we also used natural language processing to group similar responses. We computed sentence embeddings for all responses in each scenario using [Sentence-BERT](www.sbert.net) and reduced the dimensionality of the embedding space using [UMAP](umap-learn.readthedocs.io/en/). We clustered the resulting embeddings using two methods, DBSCAN and k-means. For k-means, we performed clustering at a range of k-values and determined the ideal number of clusters for each context by visual inspecting the resulting [elbow plots](../nlpCoding/pg_clusters/KMeans/kplots/).
+
+Using the elbow method to determine optimal number of clusters for k-means, the number of clusters by context ranged from `r decision_clusters %>% group_by(context) %>% summarize(max(cluster_K)) %>% pull() %>% min()` to `r decision_clusters %>% group_by(context) %>% summarize(max(cluster_K)) %>% pull() %>% max()` clusters. For DBSCAN, we once again used values of $\epsilon =$ `r eps` and $minSamples =$ `r minSamp` as the parameters that resulted in the most semantically-meaningful clusters across contexts. At these values, the number of clusters per context ranged from `r decision_clusters %>% group_by(context) %>% summarize(max(cluster_DB)) %>% pull() %>% min()` to `r decision_clusters %>% group_by(context) %>% summarize(max(cluster_DB)) %>% pull() %>% max()`.
+
+#### Results
+```{r decisionpredictnlp, echo=F,warning=F,message=F}
+## Here we model participant behavior in the first-person decision study
+
+# calculate average value of and proportion of possibility generation responses for each k-means cluster
+pg_clusters_K <- decision_clusters %>%  
+  filter(source == "pg") %>% 
+  group_by(context, cluster_K, cluster_name_K) %>% 
+  summarise(avg_value_pg = mean(value), n_pg = n(), .groups = "drop") %>% 
+  group_by(context) %>% 
+  mutate(proportion_pg = n_pg/sum(n_pg))
+
+# calculate average value of and proportion of possibility generation responses for each DBSCAN cluster
+pg_clusters_DB <- decision_clusters %>%  
+  filter(source == "pg") %>% 
+  group_by(context, cluster_DB, cluster_name_DB) %>% 
+  summarise(avg_value_pg = mean(value), n_pg = n(), .groups = "drop") %>% 
+  group_by(context) %>% 
+  mutate(proportion_pg = n_pg/sum(n_pg))
+
+# calculate proportion of decision responses for each context being grouped into each cluster
+dec_clusters_K <- decision_clusters %>% 
+  filter(source == 'decision') %>% 
+  group_by(context, cluster_K, cluster_name_K) %>% 
+  summarise(n_decision = n(), .groups = "drop") %>% 
+  group_by(context) %>% 
+  mutate(proportion_decision = n_decision/sum(n_decision)) 
+
+dec_clusters_DB <- decision_clusters %>% 
+  filter(source == 'decision') %>% 
+  group_by(context, cluster_DB, cluster_name_DB) %>% 
+  summarise(n_decision = n(), .groups = "drop") %>% 
+  group_by(context) %>% 
+  mutate(proportion_decision = n_decision/sum(n_decision)) 
+
+
+## Model:
+### Step 1: Sample k samples from pg for a given context.
+### Step 2: select response  with highest cluster value.
+### Repeat 10,000 times, summarise to get proportion of times each cluster is selected for a given scenario
+
+# Function to perform the decision model for a given consideration set size k and given clustering_method ("K" or "DB")
+run_decision_model <- function(k, sample_sets, df, pg_clusters, decision_clusters, clustering_method) {
+  # print(paste("k =", k))
+
+  decision_model <- df %>%
+  filter(source == 'pg') %>%
+  left_join(get(paste0("pg_clusters_",clustering_method)),
+            by = c("context", 
+                   paste0("cluster_", clustering_method),
+                   paste0("cluster_name_", clustering_method))) %>% 
+  group_by(context) %>%
+  # sample k * sample_sets responses with replacement from each context
+  sample_n(k * sample_sets, replace = TRUE) %>%
+  # split resulting responses into sample sets of k size
+  mutate(sample_set = (row_number() - 1) %/% k) %>%
+  group_by(context, sample_set) %>%
+  # take the response with the highest avg value of cluster
+  arrange(desc(avg_value_pg)) %>% 
+  slice(1) %>% 
+  group_by_at(vars(context, paste0("cluster_", clustering_method))) %>%
+  # summarise likelihood of being selected for each cluster within each context
+  summarise(model_proportion = n() / sample_sets, .groups = "drop") 
+
+  # join decision model with pg_clusters and decision_clusters add contexts that were never sampled by the model
+  clusters_summarized <- left_join(
+    get(paste0("pg_clusters_",clustering_method)), decision_model,
+    by = c("context", 
+           paste0("cluster_", clustering_method))) %>% 
+    left_join( get(paste0("dec_clusters_",clustering_method)),
+              by = c("context", 
+                     paste0("cluster_", clustering_method),
+                     paste0("cluster_name_", clustering_method))) %>% 
+    # replace NA values (clusters that were never sampled) with 0
+    mutate(model_proportion = 
+             if_else(is.na(model_proportion), 0, model_proportion),
+           proportion_decision = 
+             if_else(is.na(proportion_decision), 0, proportion_decision),
+           k = k)
+  return(clusters_summarized)
+}
+
+# Specify the range of k values
+k_values <- 1:10
+# Specify how many consideration sets are sampled
+sample_sets = 10000
+
+
+# run decision model for k-means clusters at all consideration set sizes
+decision_results_K <- map_df(k_values,
+                             ~ run_decision_model(.x,
+                                                  sample_sets,
+                                                  decision_clusters, 
+                                                  pg_clusters_K, 
+                                                  dec_clusters_K,
+                                                  "K"))
+
+# run decision model for DBSCAN clusters at all consideration set sizes
+decision_results_DB <- map_df(k_values,
+                             ~ run_decision_model(.x,
+                                                  sample_sets,
+                                                  decision_clusters, 
+                                                  pg_clusters_DB,
+                                                  dec_clusters_DB,
+                                                  "DB"))
+
+
+# # Check if decision results has already been computed, if so uses the dataframe stored
+# if(file.exists("../computationOutputs/decisionResults.rda")){
+#   decision_results <- readRDS(file = "../computationOutputs/decisionResults.rda")
+# } else {
+#   # Otherwise run the decision model for each k value
+#   decision_results <- map_df(k_values,
+#                              ~ run_decision_model(.x, cluster_df, 
+#                                                   pg_clusters, sample_sets))
+#   
+#   # Store results in computationOutputs
+#   decision_results %>% saveRDS(file = "../computationOutputs/decisionResults.rda")
+# }
+
+
+# table with k-means clusters decision model correlations and p values for 1 <= k <= 10
+k_correlations_K <- decision_results_K %>% 
+  group_by(k) %>%
+  summarise(correlation = cor.test(model_proportion, proportion_decision)$estimate,
+            p_value = cor.test(model_proportion, proportion_decision)$p.value) 
+
+# table with DBSCAN clusters decision model correlations and p values for 1 <= k <= 10
+k_correlations_DB <- decision_results_DB %>% 
+  group_by(k) %>%
+  summarise(correlation = cor.test(model_proportion, proportion_decision)$estimate,
+            p_value = cor.test(model_proportion, proportion_decision)$p.value) 
+
+
+# selects results from decision model with consideration set size k=3 in line with pre-existing models
+cor_result_K <- with(decision_results_K %>% filter(k==3), cor.test(model_proportion, proportion_decision))
+cor_result_DB <- with(decision_results_DB %>% filter(k==3), cor.test(model_proportion, proportion_decision))
+
+
+```
+We used the same decision making model as previously, this time predicting the likelihood of a decision in a given NLP-cluster rather than a manually coded action category being selected for the first-person decision study.
+
+Using both the DBSCAN and the k-means clusters, the model once again strongly predicted actual decision likelihood at all consideration set sizes tested (`r round(min(k_correlations_DB$correlation), 3)` $<r<$ `r round(max(k_correlations_DB$correlation),3)` using DBSCAN clusters, and `r round(min(k_correlations_K$correlation), 3)` $<r<$ `r round(max(k_correlations_K$correlation),3)` using k-means clusters, all at $p<.001$).
 
 
 
@@ -709,8 +1077,7 @@ evSum <- evL %>%
     as.data.frame() %>% 
     group_by(context) %>% 
     mutate(actionNumb = paste(context, as.integer(as.factor(action)), sep = "_") ) %>% 
-  relocate(actionNumb, .after = "context") 
-
+  relocate(actionNumb, .after = "context")
 ```
 The 'actual actions' we generated varied widely across all contexts. We averaged participant responses for each action as our measure of action value for each dimension. The average probability ratings of the actions ranged from `r evSum %>% filter(question == 'Probability') %>% pull(mean) %>% min() %>% round(2)` to `r evSum %>% filter(question == 'Probability') %>% pull(mean) %>% max() %>% round(2)`, $M =$ `r evSum %>% filter(question == 'Probability') %>% pull(mean) %>% mean() %>% round(2)`, $SD =$ `r evSum %>% filter(question == 'Probability') %>% pull(mean) %>% sd() %>% round(2)`, the average morality ratings ranged from `r evSum %>% filter(question == 'Morality') %>% pull(mean) %>% min() %>% round(2)` to `r evSum %>% filter(question == 'Morality') %>% pull(mean) %>% max() %>% round(2)`, $M =$ `r evSum %>% filter(question == 'Morality') %>% pull(mean) %>% mean() %>% round(2)`, $SD =$ `r evSum %>% filter(question == 'Morality') %>% pull(mean) %>% sd() %>% round(2)`, and the average normality ratings ranged from `r evSum %>% filter(question == 'Normality') %>% pull(mean) %>% min() %>% round(2)` to `r evSum %>% filter(question == 'Normality') %>% pull(mean) %>% max() %>% round(2)`, $M =$ `r evSum %>% filter(question == 'Normality') %>% pull(mean) %>% mean() %>% round(2)`, $SD =$ `r evSum %>% filter(question == 'Normality') %>% pull(mean) %>% sd() %>% round(2)`.
 
@@ -758,7 +1125,7 @@ figS2
 
 
 ### Calculating the modal distance
-In order to predict participants' higher level judgments for these generated actions, we developed a novel measure that compared ratings for each action against the set of all participant generated responses for the context. This value, what we're referring to as the *modal distance*, is the proportion of participant generated responses for the context (from [Study 1](#study-1)) that had a higher average rating than the average rating for a given action (from [Study 2](#study-2)). The less normal an answer is, the higher its modal distance value will be (i.e. the more distant it is from the center of the contextual modal space). Importantly, the value is context dependent: an action with an average normality rating of 50 will have a lower modal distance in a context with skewed positive responses than in a context with a more uniform distribution. This value will be used to predict responses in all subsequent studies. \ 
+In order to predict participants' higher level judgments for these generated actions, we developed a novel measure that compared ratings for each action against the set of all participant generated responses for the context. This value, what we're referring to as the *modal distance*, is the proportion of participant generated responses for the context (from [Study 1](#study-1-possibility-generation)) that had a higher average rating than the average rating for a given action (from [Study 2](#study-2-first-person-decision-making)). The less normal an answer is, the higher its modal distance value will be (i.e. the more distant it is from the center of the contextual modal space). Importantly, the value is context dependent: an action with an average normality rating of 50 will have a lower modal distance in a context with skewed positive responses than in a context with a more uniform distribution. This value will be used to predict responses in all subsequent studies. \ 
 We also sought to see whether each individual judgment (probability, morality and normality) was separately predictive of high-level judgments. We recalculated the modal distance for each action, except instead of using the averages of probability, morality and normality as the value score for each participant-generated and actual action, we calculated three different scores, one for each type of judgment. This gave use a probability distance, a morality distance and normality distance for each action.
 
 ```{r modalDistancePlot, message=F,warning=F,echo=F}
@@ -828,7 +1195,7 @@ c13.h <- density13 +
           geom_area(data = c13h.info, aes(x=x, y=y), fill="red",alpha=.25) +
           annotate(geom="text", x=30, y=.022, label="Modal Distance(running away)",
             color="red",alpha=.65) 
-
+c13.h
 # ggsave(c13.h,file="../figs/fig4.png", width=8, height=6, units="in")
 
 ```
@@ -949,26 +1316,41 @@ Across all actions, participants reported a wide range of agreement with stateme
 The moral distance had a correlation of  $r =$ `r round(htCorr[[2]]$estimate[[1]], 3)`, $p <$ `r max(.001, round(htCorr[[2]]$p.value[[1]], 3))` with force judgments; probability distance had a correlation of  $r =$ `r round(htCorr[[3]]$estimate[[1]], 3)`, $p <$ `r max(.001, round(htCorr[[3]]$p.value[[1]], 3))` and normality distance had a correlation of  $r =$ `r round(htCorr[[4]]$estimate[[1]], 3)`, $p <$ `r max(.001, round(htCorr[[4]]$p.value[[1]], 3))`.
 
 ```{r fig5, echo=F,warning=F,message=F}
+# shortened context 13 names for plot lables
+short_actions = c("blame maid of honor", "borrow ring", "call taxi", "run away", "steal ring", "tell sister")
 
-fig5 <- htSum %>% mutate(context=factor(context)) %>%
-                  ggplot(aes(y=hadTo,x=modalDistance)) +
-                  geom_point(aes(color=context)) +
-                  labs(y="Agreement agent was forced", 
-                       x="Modal distance of actual action") +
-                  geom_smooth(method=lm)+
-                  theme_bw() +
-                  theme(
-                    plot.background = element_blank()
-                    #,legend.position = "top"
-                    ,panel.grid.major = element_blank()
-                    ,panel.grid.minor = element_blank()
-                    ,axis.text=element_text(size=rel(1.25))
-                    #,axis.title=element_blank()
-                    #,axis.title.y=element_blank()
-                    #,axis.text.x=element_text(size=rel(1.5))
-                    ,axis.title = element_text(size=rel(1.25))
-                    ,axis.ticks = element_blank()
-                  )
+fig5 <- htSum %>% 
+  # add shortened names
+  mutate(action_short = if_else(context == 13,
+                                short_actions[(row_number() - 1) %% 6 + 1], 
+                                NA)) %>% 
+  mutate(context=factor(context)) %>% 
+  ggplot(aes(y=hadTo,x=modalDistance, label = action_short)) +
+  geom_point(aes(color=context)) +
+  labs(y="Agreement agent was forced", 
+       x="Modal distance of actual action") +
+  geom_smooth(method=lm)+
+  theme_bw() +
+  geom_label_repel(data = . %>% filter(context == 13),
+               fill = "white",
+               color = "black",
+               label.padding = unit(0.2, "lines"),
+               label.size = 0.1,
+               label.box = "round",
+               min.segment.length = 0,
+               ) +
+  theme(
+    plot.background = element_blank()
+    #,legend.position = "top"
+    ,panel.grid.major = element_blank()
+    ,panel.grid.minor = element_blank()
+    ,axis.text=element_text(size=rel(1.25))
+    #,axis.title=element_blank()
+    #,axis.title.y=element_blank()
+    #,axis.text.x=element_text(size=rel(1.5))
+    ,axis.title = element_text(size=rel(1.25))
+    ,axis.ticks = element_blank()
+  )
 
 fig5
 
@@ -1189,7 +1571,7 @@ suffAnovas <- list(
 
 ```
 Participants reported a wide range of agreement with statements attributing causal responsibility to the agents ($M=$ `r causalL %>% summarise(mean(response)) %>% pull() %>% round(1)`, $SD=$ `r causalL %>% summarise(sd(response)) %>% pull() %>% round(1)`).\ 
-To predict participants' judgments of causal atrtribution for each event, we generated a new measure that incorporated the modal distance for each event and participants' judgments of the counterfactual relevance. The modal distance should only play a role in causal judgments if participants judge the event as necessary for bringing out the downstream consequence. As such, we multiplied participant ratings for counterfactual necessity (data from [Study 5b](#study-5b:-counterfactual-judgments) with modal distance values generating a value which we're calling 'necessity strength' for each event. As predicted, across action-context pairs, necessity strength was highly correlated with causal ratings ($r =$ `r round(potencyCorr$estimate[[1]], 3)`, $p <$ `r max(.001, round(potencyCorr$p.value, 3))`).\ 
+To predict participants' judgments of causal atrtribution for each event, we generated a new measure that incorporated the modal distance for each event and participants' judgments of the counterfactual relevance. The modal distance should only play a role in causal judgments if participants judge the event as necessary for bringing out the downstream consequence. As such, we multiplied participant ratings for counterfactual necessity (data from [Study 5b](#study-5b-counterfactual-judgments) with modal distance values generating a value which we're calling 'necessity strength' for each event. As predicted, across action-context pairs, necessity strength was highly correlated with causal ratings ($r =$ `r round(potencyCorr$estimate[[1]], 3)`, $p <$ `r max(.001, round(potencyCorr$p.value, 3))`).\ 
 
 The moral distance had a correlation of  $r =$ `r round(causalCorr[[1]]$estimate[[1]], 3)`, $p <$ `r max(.001, round(causalCorr[[1]]$p.value[[1]], 3))` with force judgments; probability distance had a correlation of  $r =$ `r round(causalCorr[[2]]$estimate[[1]], 3)`, $p <$ `r max(.001, round(causalCorr[[2]]$p.value[[1]], 3))` and normality distance had a correlation of  $r =$ `r round(causalCorr[[3]]$estimate[[1]], 3)`, $p <$ `r max(.001, round(causalCorr[[3]]$p.value[[1]], 3))`.\ 
 
@@ -1203,49 +1585,63 @@ We also constructed a series of linear mixed effects models to compare our model
 ```{r causalFigs, echo=F,warning=F,message=F}
 ## Figure 6
 # Necessity strength vs causal judgments
-fig6 <- causalSum %>% mutate(context=factor(context)) %>%
-                  ggplot(aes(y=causal,x=necessity_strength)) +
-                  geom_point(aes(color=context)) +
-                  labs(y="Agreement that the agent should be blamed", 
-                       x="Necessity strength of the actual action") +
-                  geom_smooth(method=lm)+
-                  theme_bw() +
-                  theme(
-                    plot.background = element_blank()
-                    #,legend.position = "top"
-                    ,panel.grid.major = element_blank()
-                    ,panel.grid.minor = element_blank()
-                    ,axis.text=element_text(size=rel(1.25))
-                    #,axis.title=element_blank()
-                    #,axis.title.y=element_blank()
-                    #,axis.text.x=element_text(size=rel(1.5))
-                    ,axis.title = element_text(size=rel(1.25))
-                    ,axis.ticks = element_blank()
-                  )
+fig6 <- causalSum %>% 
+  # add shortened names
+  mutate(action_short = if_else(context == 13,
+                                short_actions[(row_number() - 1) %% 6 + 1], 
+                                NA)) %>% 
+  mutate(context=factor(context)) %>%
+  ggplot(aes(y=causal,x=necessity_strength, label = action_short)) +
+  geom_point(aes(color=context)) +
+  labs(y="Agreement that the agent should be blamed", 
+       x="Necessity strength of the actual action") +
+  geom_smooth(method=lm)+
+  geom_label_repel(data = . %>% filter(context == 13),
+               fill = "white",
+               color = "black",
+               label.padding = unit(0.2, "lines"),
+               label.size = 0.1,
+               label.box = "round",
+               min.segment.length = 0,
+               ) +
+  theme_bw() +
+  theme(
+    plot.background = element_blank()
+    #,legend.position = "top"
+    ,panel.grid.major = element_blank()
+    ,panel.grid.minor = element_blank()
+    ,axis.text=element_text(size=rel(1.25))
+    #,axis.title=element_blank()
+    #,axis.title.y=element_blank()
+    #,axis.text.x=element_text(size=rel(1.5))
+    ,axis.title = element_text(size=rel(1.25))
+    ,axis.ticks = element_blank()
+  )
 fig6
 # ggsave(fig6,file="../figs/fig6.png", width = 10, height = 8)
 
 ## Figure S3
 # Counterfactual relevance vs modal distance for each action
-figS3 <- causalSum %>% mutate(context=factor(context)) %>%
-                  ggplot(aes(y=modalDistance,x=counterfactual_relevance)) +
-                  geom_point(aes(color=context)) +
-                  labs(y="Modal distance of the actual action", 
-                       x="Counterfactual relevance score") +
-                  geom_smooth(method=lm)+
-                  theme_bw() +
-                  theme(
-                    plot.background = element_blank()
-                    #,legend.position = "top"
-                    ,panel.grid.major = element_blank()
-                    ,panel.grid.minor = element_blank()
-                    ,axis.text=element_text(size=rel(1.25))
-                    #,axis.title=element_blank()
-                    #,axis.title.y=element_blank()
-                    #,axis.text.x=element_text(size=rel(1.5))
-                    ,axis.title = element_text(size=rel(1.25))
-                    ,axis.ticks = element_blank()
-                  )
+figS3 <- causalSum %>% 
+  mutate(context=factor(context)) %>%
+  ggplot(aes(y=modalDistance,x=counterfactual_relevance)) +
+  geom_point(aes(color=context)) +
+  labs(y="Modal distance of the actual action", 
+       x="Counterfactual relevance score") +
+  geom_smooth(method=lm)+
+  theme_bw() +
+  theme(
+    plot.background = element_blank()
+    #,legend.position = "top"
+    ,panel.grid.major = element_blank()
+    ,panel.grid.minor = element_blank()
+    ,axis.text=element_text(size=rel(1.25))
+    #,axis.title=element_blank()
+    #,axis.title.y=element_blank()
+    #,axis.text.x=element_text(size=rel(1.5))
+    ,axis.title = element_text(size=rel(1.25))
+    ,axis.ticks = element_blank()
+  )
 
 
 # ggsave(figS3,file="../figs/figS3.png", width = 10, height = 8)
@@ -1259,7 +1655,7 @@ colors <- colors[c(1,13,15)]
 
 ## Study 6: Blame judgments
 
-Using the same stimulus sets as [Study 5](#study-5), we sought to determine whether the modal distance could further be used to predict participants' moral judgments of the agents. Specifically, we investigated whether participants judged that the agent should be blamed for the downstream consequence occurring.
+Using the same stimulus sets as [Study 5](#study-5a-causal-judgments), we sought to determine whether the modal distance could further be used to predict participants' moral judgments of the agents. Specifically, we investigated whether participants judged that the agent should be blamed for the downstream consequence occurring.
 
 ### Participants
 
@@ -1273,7 +1669,7 @@ We collected a sample of `r length(unique(blameW$id))` participants ($M_{age}$ =
 
 ### Procedure
 
-Study design was identical to [Study 5a](#study-5a), except that instead of being asked about causal attribution, they were instead asked to rate their agreement with a statement of blame attribution on a 100-point scale:
+Study design was identical to [Study 5a](#study-5a-causal-judgments), except that instead of being asked about causal attribution, they were instead asked to rate their agreement with a statement of blame attribution on a 100-point scale:
 
 |     *Blame statement:* [Agent] should be blamed for [Downstream consequence].
 
@@ -1347,25 +1743,40 @@ The moral distance had a correlation of  $r =$ `r round(blameCorrs[[1]]$estimate
 ## Figure S4 
 
 # necessity strength vs blame judgments for each action
-figS4 <- blameSum %>% mutate(context=factor(context)) %>%
-                  ggplot(aes(y=blame,x=necessity_strength)) +
-                  geom_point(aes(color=context)) +
-                  labs(y="Agreement that the agent should be blamed", 
-                       x="Necessity strength of the actual action") +
-                  geom_smooth(method=lm)+
-                  theme_bw() +
-                  theme(
-                    plot.background = element_blank()
-                    #,legend.position = "top"
-                    ,panel.grid.major = element_blank()
-                    ,panel.grid.minor = element_blank()
-                    ,axis.text=element_text(size=rel(1.25))
-                    #,axis.title=element_blank()
-                    #,axis.title.y=element_blank()
-                    #,axis.text.x=element_text(size=rel(1.5))
-                    ,axis.title = element_text(size=rel(1.25))
-                    ,axis.ticks = element_blank()
-                  )
+figS4 <- blameSum %>% 
+  # add shortened names
+  mutate(action_short = if_else(context == 13,
+                                short_actions[(row_number() - 1) %% 6 + 1], 
+                                NA)) %>% 
+  mutate(context=factor(context)) %>%
+  ggplot(aes(y=blame,x=necessity_strength, label = action_short)) +
+  geom_point(aes(color=context)) +
+  labs(y="Agreement that the agent should be blamed", 
+       x="Necessity strength of the actual action") +
+  geom_smooth(method=lm)+
+  geom_label_repel(data = . %>% filter(context == 13),
+             fill = "white",
+             color = "black",
+             label.padding = unit(0.2, "lines"),
+             label.size = 0.1,
+             label.box = "round",
+             min.segment.length = 0,
+             force = 100,
+             force_pull = 10,
+             ) +
+  theme_bw() +
+  theme(
+    plot.background = element_blank()
+    #,legend.position = "top"
+    ,panel.grid.major = element_blank()
+    ,panel.grid.minor = element_blank()
+    ,axis.text=element_text(size=rel(1.25))
+    #,axis.title=element_blank()
+    #,axis.title.y=element_blank()
+    #,axis.text.x=element_text(size=rel(1.5))
+    ,axis.title = element_text(size=rel(1.25))
+    ,axis.ticks = element_blank()
+  )
 figS4
 # ggsave(figS4, file="../figs/figS4.png",width=10, height=8, units="in")
 

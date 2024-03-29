@@ -7,11 +7,11 @@ This repository contains the experiment files, data, and analyses used to produc
 ## Directory Structure
 This repository is organized as follows:
 
-Modal spaces
-* writeUp
-   * [writeUp.Rmd](/writeup/writeUP.Rmd)
-   * [writeUp.html](/writeup/writeUP.html)
-* qualtricsStudies
+Modal spaces:
+* [materials](/materials/)
+   * [contextsTable.csv](/materials/contextsTable.csv)
+   * [actualActions.csv](/materials/textsCodingKey.csv)
+* [qualtricsStudies](/qualtricsStudies/)
    * [Study 1a.docx](/qualtricsStudies/Study1a.docx)
    * [Study 1a.qsf](/qualtricsStudies/Study1a.qsf)
    * [Study 1b.docx](/qualtricsStudies/Study1b.docx)
@@ -32,7 +32,7 @@ Modal spaces
    * [Study 5c.qsf](/qualtricsStudies/Study5c.qsf)
    * [Study 6.docx](/qualtricsStudies/Study6.docx)
    * [Study 6.qsf](/qualtricsStudies/Study6.qsf)
-* data
+* [data](/data/)
    * Study 1a: [pg1.csv](/data/pg1.csv)
    * Study 1b: [pg2.csv](/data/pg2.csv)
    * Study 1c: [pg3.csv](/data/pg3.csv)
@@ -43,16 +43,23 @@ Modal spaces
    * Study 5b: [causal+counterfactual.csv](/data/causal+counterfactual.csv)
    * Study 5c: [sufficiencyCounterfactual.csv](/data/sufficiencyCounterfactual.csv)
    * Study 6: [blame.csv](/data/blame.csv)
-* manualCoding
-   * [texts_coding_rater1.csv](/manualCoding/texts_coding_rater1.csv) (rater 1)
-   * [texts_coding_rater2.csv](/manualCoding/texts_coding_rater2.csv) (rater 2)
-   * [texts_coding_3.csv](/manualCoding/texts_coding_rater3.csv) (rater 3 settling cases of inter-rater disagreement)
-   * [pg_coded_final.csv](/manualCoding/pg_coded_final.csv) (compiled final ratings based on 3 raters)
-* materials
-   * [contextsTable.csv](/materials/contextsTable.csv)
+* [manualCoding](/manualCoding/)
+   * [decision_coding_rater1.csv](/manualCoding/decision_coding_rater1.csv)
+   * [decision_coding_rater2.csv](/manualCoding/decision_coding_rater2.csv)
+   * [decision_coding_rater3.csv](/manualCoding/decision_coding_rater3.csv) 
    * [textsCodingKey.csv](/materials/textsCodingKey.csv)
-   * [actualActions.csv](/materials/textsCodingKey.csv)
-* computationOutputs (outputs of computation-intensive analyses)
+   * [texts_coding_rater1.csv](/manualCoding/texts_coding_rater1.csv)
+   * [texts_coding_rater2.csv](/manualCoding/texts_coding_rater2.csv)
+   * [texts_coding_rater3.csv](/manualCoding/texts_coding_rater3.csv)
+* [nlpCoding](/nlpCoding/)
+   * [nlpCoding.ipynb](/nlpCoding/nlpCoding.ipynb)
+   * [pg_clusters](/nlpCoding/pg_clusters/)
+      * [DBSCAN](/nlpCoding/pg_clusters/DBSCAN/)
+   * [pg_decision_clusters](/nlpCoding/pg_decision_clusters/)
+* [writeUp](/writeup/)
+   * [writeUp.Rmd](/writeup/writeUP.Rmd)
+   * [writeUp.html](/writeup/writeUP.html)
+* [computationOutputs](/computationOutputs/)
    * [pgPredictP.rda](/computationOutputs/pgPredictP.rda)
    * [pgPredictM.rda](/computationOutputs/pgPredictM.rda)
    * [pgPredictN.rda](/computationOutputs/pgPredictN.rda)
@@ -60,7 +67,7 @@ Modal spaces
    * [pgNormM.rda](/computationOutputs/pgNormM.rda)
    * [pgNormP.rda](/computationOutputs/pgNormP.rda)
    * [decisionResults.rda](/computationOutputs/decisionResults.rda)
-* figs
+* [figs](/figs/)
    * [fig1.png](/figs/fig1.png)
    * [fig2.png](/figs/fig2.png)
    * [fig3.png](/figs/fig3.png)
@@ -74,4 +81,4 @@ Modal spaces
 
 
 ## Data and Analyses
-The data folder contains anonymized unprocessed data downloaded from Qualtrics. All analyses are completed within writeUp.rmd based on these data as well as the materials and manual coding files, and the results are saved to the writeUp.html file. Figures are saved to the figs folder. To save processing time, the outputs from many of the linear effects models used in the analyses are stored in the lmerOutputs folder, allowing us to simply read in the results instead of recalculating them each time.
+The data folder contains unprocessed data downloaded from Qualtrics that was subsequently anonymized. All analyses except algorithmic clustering of responses are completed within [writeUp.rmd](/writeup/writeUP.Rmd) based on these data as well as the materials and manual/nlp coding files, and the results are compiled in [writeUp.html](/writeup/writeUP.html). Figures are saved to [figs](/figs/). The code for alogirthmic clustering of responses is in [nlpCoding.ipynb](/nlpCoding/nlpCoding.ipynb) and the results from are saved within folders that reference their DBSCAN parameters. For instance [/nlpCoding/pg_clusters/DBSCAN/eps0.4_samp6/plots/S13.html](/nlpCoding/pg_clusters/DBSCAN/eps0.4_samp6/plots/S13.html) is a plot showing the clustering of context 13 responses at epsilon = 0.4 and MinPts = 6. To save processing time when running other analyses, the outputs from many of the computation-intensive analyses are stored in [computationOutputs](/computationOutputs/), allowing us to simply read in the results instead of recalculating them each time. 

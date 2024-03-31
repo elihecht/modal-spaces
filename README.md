@@ -54,8 +54,13 @@ Modal spaces:
 * [nlpCoding](/nlpCoding/)
    * [nlpCoding.ipynb](/nlpCoding/nlpCoding.ipynb)
    * [pg_clusters](/nlpCoding/pg_clusters/)
-      * [DBSCAN](/nlpCoding/pg_clusters/DBSCAN/)
+      * [eps0.4_samp6](/nlpCoding/pg_clusters/eps0.4_samp6/)
+         * [plots](/nlpCoding/pg_clusters/eps0.4_samp6/plots/)
+         * [tables](/nlpCoding/pg_clusters/eps0.4_samp6/tables/)
    * [pg_decision_clusters](/nlpCoding/pg_decision_clusters/)
+      * [eps0.4_samp6](/nlpCoding/pg_decision_clusters/eps0.4_samp6/)
+         * [plots](/nlpCoding/pg_decision_clusters/eps0.4_samp6/plots/)
+         * [tables](/nlpCoding/pg_decision_clusters/eps0.4_samp6/tables/)
 * [writeUp](/writeup/)
    * [writeUp.Rmd](/writeup/writeUP.Rmd)
    * [writeUp.html](/writeup/writeUP.html)
@@ -81,4 +86,4 @@ Modal spaces:
 
 
 ## Data and Analyses
-The data folder contains unprocessed data downloaded from Qualtrics that was subsequently anonymized. All analyses except algorithmic clustering of responses are completed within [writeUp.rmd](/writeup/writeUP.Rmd) based on these data as well as the materials and manual/nlp coding files, and the results are compiled in [writeUp.html](/writeup/writeUP.html). Figures are saved to [figs](/figs/). The code for alogirthmic clustering of responses is in [nlpCoding.ipynb](/nlpCoding/nlpCoding.ipynb) and the results from are saved within folders that reference their DBSCAN parameters. For instance [/nlpCoding/pg_clusters/DBSCAN/eps0.4_samp6/plots/S13.html](/nlpCoding/pg_clusters/DBSCAN/eps0.4_samp6/plots/S13.html) is a plot showing the clustering of context 13 responses at epsilon = 0.4 and MinPts = 6. To save processing time when running other analyses, the outputs from many of the computation-intensive analyses are stored in [computationOutputs](/computationOutputs/), allowing us to simply read in the results instead of recalculating them each time. 
+The data folder contains unprocessed data downloaded from Qualtrics that was subsequently anonymized. All analyses except algorithmic clustering of responses are completed within [writeUp.rmd](/writeup/writeUP.Rmd) based on these data as well as the materials and manual/nlp coding files, and the results are compiled in [writeUp.html](/writeup/writeUP.html). Figures are saved to [figs](/figs/). The code for alogirthmic clustering of responses is in [nlpCoding.ipynb](/nlpCoding/nlpCoding.ipynb) and the resulting tables and plots identifying repsonses by cluster are saved within folders that reference their DBSCAN parameters. For instance [/nlpCoding/pg_clusters/eps0.4_samp6/plots/S13.html](/nlpCoding/pg_clusters/DBSCAN/eps0.4_samp6/plots/S13.html) is a plot showing the clustering of context 13 responses at epsilon = 0.4 and MinPts = 6. To save processing time when running other analyses, the outputs from many of the computation-intensive analyses are stored in [computationOutputs](/computationOutputs/), allowing us to simply read in the results instead of recalculating them each time. 

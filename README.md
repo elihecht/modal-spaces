@@ -33,16 +33,16 @@ Modal spaces:
    * [Study 6.docx](/qualtricsStudies/Study6.docx)
    * [Study 6.qsf](/qualtricsStudies/Study6.qsf)
 * [data](/data/)
-   * Study 1a: [pg1.csv](/data/pg1.csv)
-   * Study 1b: [pg2.csv](/data/pg2.csv)
-   * Study 1c: [pg3.csv](/data/pg3.csv)
-   * Study 2: [decision.csv](/data/decision.csv)
-   * Study 3: [ev.csv](/data/ev.csv)
-   * Study 4: [hadTo.csv](/data/hadTo.csv)
-   * Study 5a: [causal.csv](/data/causal.csv)
-   * Study 5b: [causal+counterfactual.csv](/data/causal+counterfactual.csv)
-   * Study 5c: [sufficiencyCounterfactual.csv](/data/sufficiencyCounterfactual.csv)
-   * Study 6: [blame.csv](/data/blame.csv)
+   * [study1a.csv](/data/study1a.csv)
+   * [study2a.csv](/data/study2a.csv)
+   * [study3a.csv](/data/study3a.csv)
+   * [study2.csv](/data/study2.csv)
+   * [study3.csv](/data/study3.csv)
+   * [study4.csv](/data/study4.csv)
+   * [study5a.csv](/data/study5a.csv)
+   * [study5b.csv](/data/study5b.csv)
+   * [study5c.csv](/data/study5c.csv)
+   * [study6.csv](/data/study6.csv)
 * [manualCoding](/manualCoding/)
    * [decision_coding_rater1.csv](/manualCoding/decision_coding_rater1.csv)
    * [decision_coding_rater2.csv](/manualCoding/decision_coding_rater2.csv)
@@ -86,4 +86,4 @@ Modal spaces:
 
 
 ## Data and Analyses
-The data folder contains unprocessed data downloaded from Qualtrics that was subsequently anonymized. All analyses except algorithmic clustering of responses are completed within [writeUp.rmd](/writeup/writeUP.Rmd) based on these data as well as the materials and manual/nlp coding files, and the results are compiled in [writeUp.html](/writeup/writeUP.html). Figures are saved to [figs](/figs/). The code for alogirthmic clustering of responses is in [nlpCoding.ipynb](/nlpCoding/nlpCoding.ipynb) and the resulting tables and plots identifying repsonses by cluster are saved within folders that reference their DBSCAN parameters. For instance [/nlpCoding/pg_clusters/eps0.4_samp6/plots/S13.html](/nlpCoding/pg_clusters/DBSCAN/eps0.4_samp6/plots/S13.html) is a plot showing the clustering of context 13 responses at epsilon = 0.4 and MinPts = 6. To save processing time when running other analyses, the outputs from many of the computation-intensive analyses are stored in [computationOutputs](/computationOutputs/), allowing us to simply read in the results instead of recalculating them each time. 
+The data folder contains unprocessed data downloaded from Qualtrics that was subsequently anonymized. All analyses except algorithmic clustering of responses are completed within [writeUp.rmd](/writeup/writeUP.Rmd) based on these data as well as the materials and manual/nlp coding files, and the results are compiled in [writeUp.html](/writeup/writeUP.html). Figures are saved to [figs](/figs/). The code for alogirthmic clustering of responses is in [nlpCoding.ipynb](/nlpCoding/nlpCoding.ipynb) and the resulting tables and plots identifying repsonses by cluster are saved within folders that reference their DBSCAN parameters. For instance [/nlpCoding/pg_decision_clusters/eps0.4_samp6/plots/S13.html](/nlpCoding/pg_clusters/eps0.4_samp6/plots/S13.html) is a plot showing the clustering of context 13 possibility generation and decision responses at epsilon = 0.4 and MinPts = 6. To save processing time when running other analyses, the outputs from a few of the computation-intensive analyses are stored in [computationOutputs](/computationOutputs/), allowing us to simply read in the results instead of recalculating them each time. 

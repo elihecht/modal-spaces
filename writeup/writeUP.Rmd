@@ -33,9 +33,9 @@ This file contains the materials for the paper "Domain-general modal cognition" 
 
 ```{r participantspg,echo=FALSE}
 # read in Study 1a-c data
-pg1 <- read.csv("../data/pg1.csv")
-pg2 <- read.csv("../data/pg2.csv")
-pg3 <- read.csv("../data/pg3.csv")
+pg1 <- read.csv("../data/study1a.csv")
+pg2 <- read.csv("../data/study1b.csv")
+pg3 <- read.csv("../data/study1c.csv")
 
 # add id column
 pg1 <- pg1 %>% rownames_to_column(var = "id") %>% 
@@ -504,7 +504,7 @@ Unlike with the manual coding results, the actions in the three most common DBSC
 
 ```{r participantsdecision, echo=F,warning=F,message=F}
 # Read decision study data
-decisionW <- read.csv("../data/decision.csv") %>% 
+decisionW <- read.csv("../data/study2.csv") %>% 
   rownames_to_column("id")
 
 # List of ids of participants who gave nonsensical answers
@@ -949,7 +949,7 @@ For each context, we created a list of six actions the agent could possibly do. 
 ### Participants
 
 ```{r participantsev, echo=F,warning=F,message=F}
-evW <- read.csv("../data/ev.csv") %>% 
+evW <- read.csv("../data/study3.csv") %>% 
   rownames_to_column("id")
 ```
 
@@ -1176,7 +1176,7 @@ for (c in unique(pgL$context)){
 
 ```{r participantsht, echo=F,warning=F,message=F}
 # read in participants' 'had to' judgments for each action
-htW <- read.csv("../data/hadTo.csv")%>% 
+htW <- read.csv("../data/study4.csv")%>% 
   rownames_to_column("id")
 ```
 
@@ -1281,16 +1281,16 @@ For each context, we came up with one downstream consequence that could potentia
 
 ```{r participantscausal, echo=F,warning=F,message=F}
 # reads in data for participants' ratings of whether the agent caused the downstream consequence
-causalW <- read.csv("../data/causal.csv") %>% 
+causalW <- read.csv("../data/study5a.csv") %>% 
   rownames_to_column("id")
 
 # reads in data for participants' ratings of whether the action was necessary for causing the outcome and for the relevancy of alternative events
-counterW <- read.csv("../data/causal+counterfactual.csv") %>% 
+counterW <- read.csv("../data/study5b.csv") %>% 
   rownames_to_column("id") %>% 
   rename_with(~gsub("\\.", "_", .x), .cols = S1_1_1:S18.2_1)
 
 # reads in data for participant ratings of whether the action was sufficient for the downstream consequence
-suffW <- read.csv("../data/sufficiencyCounterfactual.csv") %>% 
+suffW <- read.csv("../data/study5c.csv") %>% 
   rownames_to_column("id") %>% 
   rename_with(~gsub("\\.", "_", .x), .cols = S1_1_1:S18.1_1)
 
@@ -1577,7 +1577,7 @@ Using the same stimulus sets as [Study 5](#study-5a-causal-judgments), we sought
 
 ```{r participantsblame, echo=F, warning=F,message=F}
 # reads in data for whether ratings of agent should be blamed for downstream consequence
-blameW <- read.csv("../data/blame.csv") %>% 
+blameW <- read.csv("../data/study6.csv") %>% 
   rownames_to_column("id")
 ```
 
